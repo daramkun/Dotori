@@ -1,3 +1,9 @@
 <Solution>
-    
+  <Project Path="src/Dotori.Cli/Dotori.Cli.csproj" />
+  <Project Path="src/Dotori.Core/Dotori.Core.csproj" />
+  <Project Path="src/Dotori.PackageManager/Dotori.PackageManager.csproj" />
+  <Project Path="tests/Dotori.Tests.Parsing/Dotori.Tests.Parsing.csproj" />
+  <Project Path="tests/Dotori.Tests.Graph/Dotori.Tests.Graph.csproj" />
+  <Project Path="tests/Dotori.Tests.Build/Dotori.Tests.Build.csproj" />
+  <Project Path="tests/Dotori.Tests.PackageManager/Dotori.Tests.PackageManager.csproj" />
 </Solution>

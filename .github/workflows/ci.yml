@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build & Test (${{ matrix.rid }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --verbosity normal
+
+  publish-nativeaot:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+
+    runs-on: ${{ matrix.os }}
+    name: NativeAOT Publish (${{ matrix.rid }})
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install clang (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Publish NativeAOT
+        run: dotnet publish src/Dotori.Cli/Dotori.Cli.csproj -c Release -r ${{ matrix.rid }} --self-contained
+        env:
+          # Use stable SDK path on macOS to avoid Xcode beta libdl issue
+          SDKROOT: ${{ matrix.os == 'macos-latest' && '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk' || '' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotori-${{ matrix.rid }}
+          path: src/Dotori.Cli/bin/Release/net10.0/${{ matrix.rid }}/publish/
+          retention-days: 7
