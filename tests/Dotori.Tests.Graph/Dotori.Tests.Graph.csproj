@@ -21,4 +21,10 @@
     <ProjectReference Include="../../src/Dotori.Core/Dotori.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="fixtures/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

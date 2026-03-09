@@ -1,0 +1,4 @@
+project LibProject {
+    type = static-library
+    std  = c++23
+}
