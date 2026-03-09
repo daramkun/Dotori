@@ -42,7 +42,7 @@ public static class DependencyResolver
 
             if (dep.Value is VersionDependency ver)
             {
-                await EnsureVersionPackage(dep.Name, ver.Version, updatedLock, ct);
+                EnsureVersionPackage(dep.Name, ver.Version, updatedLock);
             }
             else if (dep.Value is ComplexDependency git && git.Git is not null)
             {
@@ -54,20 +54,16 @@ public static class DependencyResolver
         return updatedLock;
     }
 
-    private static async Task EnsureVersionPackage(
-        string name, string version, LockFile lockFile, CancellationToken ct)
+    private static void EnsureVersionPackage(
+        string name, string version, LockFile lockFile)
     {
         // Check if already locked at this version
         if (lockFile.Packages.Any(p => p.Name == name && p.Version == version))
             return;
 
-        // For now we don't have a registry — record as placeholder
-        // A real implementation would fetch from the registry
+        // Placeholder: no registry yet — record the version constraint
         var source = $"version:{name}@{version}";
-        var entry  = new LockEntry { Name = name, Version = version, Source = source };
-        lockFile.Packages.Add(entry);
-
-        await Task.CompletedTask;  // placeholder for registry fetch
+        lockFile.Packages.Add(new LockEntry { Name = name, Version = version, Source = source });
     }
 
     private static async Task EnsureGitPackage(

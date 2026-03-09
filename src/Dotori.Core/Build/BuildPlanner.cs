@@ -1,3 +1,4 @@
+using Dotori.Core.Linker;
 using Dotori.Core.Model;
 using Dotori.Core.Parsing;
 using Dotori.Core.Toolchain;
@@ -122,8 +123,8 @@ public sealed class BuildPlanner
 
         if (_toolchain.Kind == CompilerKind.Msvc)
         {
-            var flags = MsvcDriver.LinkFlags(_model, _toolchain, _config, outFile);
-            return MsvcDriver.MakeLinkJob(objFiles, outFile, flags);
+            var flags = MsvcLinker.LinkFlags(_model, _toolchain, _config, outFile);
+            return MsvcLinker.MakeLinkJob(objFiles, outFile, flags);
         }
         else if (_toolchain.Kind == CompilerKind.Emscripten)
         {
