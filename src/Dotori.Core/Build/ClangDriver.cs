@@ -217,7 +217,6 @@ public static class ClangDriver
             SourceFile = sourceFile,
             OutputFile = objFile,
             Args       = args.ToArray(),
-            IsModule   = isModule,
         };
     }
 

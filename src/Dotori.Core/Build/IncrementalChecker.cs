@@ -53,13 +53,6 @@ public sealed class IncrementalChecker : IDisposable
         }
     }
 
-    /// <summary>Remove a file's hash record (e.g. when it is deleted).</summary>
-    public void Remove(string filePath)
-    {
-        if (_hashes.Remove(filePath))
-            _dirty = true;
-    }
-
     /// <summary>Flush the hash DB to disk if it has been modified.</summary>
     public void Save()
     {

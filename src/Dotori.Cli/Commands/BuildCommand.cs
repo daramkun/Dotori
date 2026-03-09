@@ -20,10 +20,8 @@ internal static class BuildCommandFactory
         var libcOption        = new Option<string?>("--libc")         { Description = "C runtime library (glibc, musl)" };
         var stdlibOption      = new Option<string?>("--stdlib")       { Description = "C++ standard library (libc++, libstdc++)" };
         var jobsOption        = new Option<int?>("--jobs")            { Description = "Number of parallel jobs" };
-        var noModulesOption   = new Option<bool>("--no-modules")      { Description = "Disable C++ Modules support" };
         var fileOption        = new Option<string?>("--file")         { Description = "Build a single source file" };
         var noLinkOption      = new Option<bool>("--no-link")         { Description = "Compile only, do not link" };
-        var noUnityOption     = new Option<bool>("--no-unity")        { Description = "Ignore unity build for --file" };
 
         command.Add(projectOption);
         command.Add(allOption);
@@ -34,10 +32,8 @@ internal static class BuildCommandFactory
         command.Add(libcOption);
         command.Add(stdlibOption);
         command.Add(jobsOption);
-        command.Add(noModulesOption);
         command.Add(fileOption);
         command.Add(noLinkOption);
-        command.Add(noUnityOption);
 
         command.SetAction(async (parseResult, ct) =>
         {
