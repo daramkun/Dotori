@@ -1,0 +1,35 @@
+(* Simple executable project *)
+project MyApp {
+    type        = executable
+    std         = c++23
+    description = "My application"
+
+    sources {
+        include "src/**/*.cpp"
+    }
+
+    headers {
+        public  "include/"
+        private "src/"
+    }
+
+    runtime-link = static
+
+    [debug] {
+        defines    { "DEBUG" "_DEBUG" }
+        optimize   = none
+        debug-info = full
+    }
+
+    [release] {
+        defines    { "NDEBUG" }
+        optimize   = speed
+        debug-info = none
+        lto        = true
+    }
+
+    dependencies {
+        my-lib = { path = "../lib" }
+        fmt    = "10.2.0"
+    }
+}

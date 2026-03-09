@@ -1,0 +1,51 @@
+project PlatformApp {
+    type = executable
+    std  = c++23
+
+    sources { include "src/**/*.cpp" }
+
+    [windows] {
+        defines { "PLATFORM_WINDOWS" }
+        links   { "kernel32" }
+    }
+
+    [windows.release] {
+        defines { "WIN_RELEASE_ONLY" }
+        optimize = full
+    }
+
+    [linux] {
+        defines { "PLATFORM_LINUX" }
+        libc    = glibc
+    }
+
+    [wasm] {
+        defines { "PLATFORM_WASM" }
+    }
+
+    [wasm.emscripten] {
+        emscripten-flags { "-sUSE_SDL=2" "-sALLOW_MEMORY_GROWTH" }
+    }
+
+    [ios] {
+        sources    { include "src/platform/apple/**/*.cpp" }
+        frameworks { "Foundation" "UIKit" }
+        ios-min    = "15.0"
+    }
+
+    [android] {
+        defines           { "PLATFORM_ANDROID" }
+        android-api-level = 26
+    }
+
+    pch {
+        header = "src/pch.h"
+        source = "src/pch.cpp"
+    }
+
+    unity-build {
+        enabled    = true
+        batch-size = 8
+        exclude    { "src/main.cpp" }
+    }
+}

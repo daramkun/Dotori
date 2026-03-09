@@ -1,0 +1,38 @@
+project MyLib {
+    type = static-library
+    std  = c++23
+
+    sources { include "src/**/*.cpp" }
+    modules { include "src/**/*.cppm" }
+
+    headers {
+        public  "include/"
+        private "src/"
+    }
+
+    [windows] {
+        defines { "PLATFORM_WINDOWS" "WIN32_LEAN_AND_MEAN" }
+        links   { "kernel32" "user32" }
+    }
+
+    [linux] {
+        defines { "PLATFORM_LINUX" }
+        links   { "pthread" "dl" }
+        libc    = glibc
+        stdlib  = libstdc++
+    }
+
+    [macos] {
+        defines    { "PLATFORM_MACOS" }
+        frameworks { "Foundation" "Metal" }
+        macos-min  = "12.0"
+    }
+}
+
+package {
+    name        = "my-lib"
+    version     = "1.0.0"
+    description = "My C++ library"
+    license     = "MIT"
+    authors     { "Alice" "Bob" }
+}

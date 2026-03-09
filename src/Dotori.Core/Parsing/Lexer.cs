@@ -1,0 +1,213 @@
+namespace Dotori.Core.Parsing;
+
+public enum TokenKind
+{
+    // Literals
+    Ident,          // foo, my-lib, c++23
+    String,         // "hello"
+    Integer,        // 42
+    BoolTrue,       // true
+    BoolFalse,      // false
+
+    // Punctuation
+    LBrace,         // {
+    RBrace,         // }
+    LBracket,       // [
+    RBracket,       // ]
+    Equals,         // =
+    Comma,          // ,
+
+    // Special
+    Dot,            // . (inside condition)
+    Eof,
+}
+
+public readonly record struct Token(TokenKind Kind, string Text, SourceLocation Location);
+
+public sealed class LexerException(string message, SourceLocation location)
+    : Exception($"{location}: {message}")
+{
+    public SourceLocation Location { get; } = location;
+}
+
+public sealed class Lexer
+{
+    private readonly string _source;
+    private readonly string _file;
+    private int _pos;
+    private int _line = 1;
+    private int _col = 1;
+
+    public Lexer(string source, string file)
+    {
+        _source = source;
+        _file = file;
+    }
+
+    private char Current => _pos < _source.Length ? _source[_pos] : '\0';
+    private char Peek(int offset = 1) => (_pos + offset) < _source.Length ? _source[_pos + offset] : '\0';
+
+    private SourceLocation Here => new(_file, _line, _col);
+
+    private void Advance()
+    {
+        if (_pos >= _source.Length) return;
+        if (_source[_pos] == '\n') { _line++; _col = 1; }
+        else { _col++; }
+        _pos++;
+    }
+
+    private void SkipWhitespaceAndComments()
+    {
+        while (_pos < _source.Length)
+        {
+            // whitespace
+            if (char.IsWhiteSpace(Current)) { Advance(); continue; }
+
+            // (* ... *) block comment (nestable)
+            if (Current == '(' && Peek() == '*')
+            {
+                Advance(); Advance(); // consume (*
+                int depth = 1;
+                while (_pos < _source.Length && depth > 0)
+                {
+                    if (Current == '(' && Peek() == '*') { Advance(); Advance(); depth++; }
+                    else if (Current == '*' && Peek() == ')') { Advance(); Advance(); depth--; }
+                    else { Advance(); }
+                }
+                continue;
+            }
+
+            // // line comment
+            if (Current == '/' && Peek() == '/')
+            {
+                while (_pos < _source.Length && Current != '\n') Advance();
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    public List<Token> Tokenize()
+    {
+        var tokens = new List<Token>();
+        while (true)
+        {
+            SkipWhitespaceAndComments();
+            if (_pos >= _source.Length)
+            {
+                tokens.Add(new Token(TokenKind.Eof, "", Here));
+                break;
+            }
+
+            var loc = Here;
+            var ch = Current;
+
+            switch (ch)
+            {
+                case '{': Advance(); tokens.Add(new Token(TokenKind.LBrace, "{", loc)); break;
+                case '}': Advance(); tokens.Add(new Token(TokenKind.RBrace, "}", loc)); break;
+                case '[': Advance(); tokens.Add(new Token(TokenKind.LBracket, "[", loc)); break;
+                case ']': Advance(); tokens.Add(new Token(TokenKind.RBracket, "]", loc)); break;
+                case '=': Advance(); tokens.Add(new Token(TokenKind.Equals, "=", loc)); break;
+                case ',': Advance(); tokens.Add(new Token(TokenKind.Comma, ",", loc)); break;
+                case '.': Advance(); tokens.Add(new Token(TokenKind.Dot, ".", loc)); break;
+
+                case '"':
+                {
+                    var text = ReadString(loc);
+                    tokens.Add(new Token(TokenKind.String, text, loc));
+                    break;
+                }
+
+                default:
+                    if (char.IsDigit(ch))
+                    {
+                        var num = ReadInteger(loc);
+                        tokens.Add(new Token(TokenKind.Integer, num, loc));
+                    }
+                    else if (IsIdentStart(ch))
+                    {
+                        var ident = ReadIdent();
+                        var kind = ident switch
+                        {
+                            "true" => TokenKind.BoolTrue,
+                            "false" => TokenKind.BoolFalse,
+                            _ => TokenKind.Ident,
+                        };
+                        tokens.Add(new Token(kind, ident, loc));
+                    }
+                    else
+                    {
+                        throw new LexerException($"Unexpected character '{ch}'", loc);
+                    }
+                    break;
+            }
+        }
+        return tokens;
+    }
+
+    private string ReadString(SourceLocation loc)
+    {
+        Advance(); // consume opening "
+        var sb = new System.Text.StringBuilder();
+        while (_pos < _source.Length && Current != '"')
+        {
+            if (Current == '\\')
+            {
+                Advance();
+                var escaped = Current switch
+                {
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    '"' => '"',
+                    '\\' => '\\',
+                    _ => throw new LexerException($"Unknown escape sequence '\\{Current}'", Here),
+                };
+                sb.Append(escaped);
+                Advance();
+            }
+            else
+            {
+                sb.Append(Current);
+                Advance();
+            }
+        }
+        if (_pos >= _source.Length)
+            throw new LexerException("Unterminated string literal", loc);
+        Advance(); // consume closing "
+        return sb.ToString();
+    }
+
+    private string ReadInteger(SourceLocation loc)
+    {
+        var sb = new System.Text.StringBuilder();
+        while (_pos < _source.Length && char.IsDigit(Current))
+        {
+            sb.Append(Current);
+            Advance();
+        }
+        return sb.ToString();
+    }
+
+    // Ident characters: letters, digits, underscore, hyphen, +
+    // (needed for c++23, my-lib, etc.)
+    private static bool IsIdentStart(char c) =>
+        char.IsLetter(c) || c == '_';
+
+    private static bool IsIdentContinue(char c) =>
+        char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '+';
+
+    private string ReadIdent()
+    {
+        var sb = new System.Text.StringBuilder();
+        while (_pos < _source.Length && IsIdentContinue(Current))
+        {
+            sb.Append(Current);
+            Advance();
+        }
+        return sb.ToString();
+    }
+}
