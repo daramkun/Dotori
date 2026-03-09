@@ -1,0 +1,8 @@
+project Tools {
+    type = executable
+    std  = c++23
+
+    dependencies {
+        core = { path = "../core" }
+    }
+}

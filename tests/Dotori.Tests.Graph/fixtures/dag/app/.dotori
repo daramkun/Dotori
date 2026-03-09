@@ -1,0 +1,9 @@
+project App {
+    type = executable
+    std  = c++23
+
+    dependencies {
+        lib  = { path = "../lib" }
+        core = { path = "../core" }
+    }
+}
