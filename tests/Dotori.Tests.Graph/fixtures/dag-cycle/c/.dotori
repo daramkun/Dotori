@@ -1,0 +1,7 @@
+project CycleC {
+    type = static-library
+
+    dependencies {
+        a = { path = "../a" }
+    }
+}
