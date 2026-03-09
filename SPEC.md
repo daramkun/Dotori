@@ -807,8 +807,8 @@ dotori (CLI)
 ### Phase 1-G: 패키지 매니저
 
 - [ ] PubGrub 의존성 해결기
-- [ ] Git Fetcher (`~/.dotori/packages/<n>/<ver>/`)
-- [ ] Lock 파일 관리 (`.dotori.lock`)
+- [x] Git Fetcher (`~/.dotori/packages/<n>/<ver>/`)
+- [x] Lock 파일 관리 (`.dotori.lock`)
 
 ---
 
