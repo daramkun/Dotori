@@ -1,0 +1,4 @@
+project AppProject {
+    type = executable
+    std  = c++23
+}

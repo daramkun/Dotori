@@ -1,0 +1,4 @@
+project SingleApp {
+    type = executable
+    std  = c++23
+}

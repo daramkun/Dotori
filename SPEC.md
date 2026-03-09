@@ -717,37 +717,37 @@ dotori (CLI)
 
 ### Phase 1-A: 프로젝트 셋업
 
-- [ ] C# .NET 8 솔루션 구조
+- [x] C# .NET 8 솔루션 구조
   - `Dotori.Cli/`, `Dotori.Core/`, `Dotori.PackageManager/`, `Dotori.Tests/`
-- [ ] NativeAOT 배포 설정 (Reflection/dynamic 사용 금지)
-- [ ] CI: Windows (amd64), macOS (arm64), Linux (amd64)
+- [x] NativeAOT 배포 설정 (Reflection/dynamic 사용 금지)
+- [x] CI: Windows (amd64), macOS (arm64), Linux (amd64)
 
 ---
 
 ### Phase 1-B: DSL 파서
 
-- [ ] 렉서 (소스 위치 기록, `(*...*)` 주석)
-- [ ] 파서 — `project` / `package` 블록, 한 파일에 둘 다 허용
-- [ ] 조건 섹션 병합
+- [x] 렉서 (소스 위치 기록, `(*...*)` 주석)
+- [x] 파서 — `project` / `package` 블록, 한 파일에 둘 다 허용
+- [x] 조건 섹션 병합
   - 조건 구체성 우선순위: `[windows.release]` > `[windows]` > 공통
   - 런타임 강제 규칙:
     - `[uwp]` → `runtime-link = dynamic` 강제
     - `[ios]` / `[tvos]` / `[watchos]` → `runtime-link = static` 강제
     - `[wasm]` → `runtime-link = static` 강제 (설정 무시)
-- [ ] 파서 단위 테스트 (`tests/fixtures/*.dotori`)
+- [x] 파서 단위 테스트 (`tests/fixtures/*.dotori`)
 
 ---
 
 ### Phase 1-C: 프로젝트 탐색 (`ProjectLocator`)
 
-- [ ] 탐색 순서 구현
+- [x] 탐색 순서 구현
   1. `--project <path>` 옵션
   2. 현재 디렉토리 `.dotori`
   3. 상위 디렉토리 재귀 탐색 (git root까지)
   4. 하위 디렉토리 탐색 후 목록 수집
   5. 하나 → 자동 선택 / 둘 이상 → 대화형 선택 / 없음 → 오류
-- [ ] 대화형 선택 프롬프트 (번호 선택 / Enter = 전체)
-- [ ] `--all` 플래그 (프롬프트 없이 전체 빌드)
+- [x] 대화형 선택 프롬프트 (번호 선택 / Enter = 전체)
+- [x] `--all` 플래그 (프롬프트 없이 전체 빌드)
 
 ---
 
