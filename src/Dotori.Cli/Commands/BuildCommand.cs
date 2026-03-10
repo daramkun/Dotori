@@ -22,6 +22,7 @@ internal static class BuildCommandFactory
         var jobsOption        = new Option<int?>("--jobs")            { Description = "Number of parallel jobs" };
         var fileOption        = new Option<string?>("--file")         { Description = "Build a single source file" };
         var noLinkOption      = new Option<bool>("--no-link")         { Description = "Compile only, do not link" };
+        var remoteOption      = new Option<string?>("--remote")       { Description = "Remote build server address (e.g. http://build-server:5100)" };
 
         command.Add(projectOption);
         command.Add(allOption);
@@ -34,6 +35,7 @@ internal static class BuildCommandFactory
         command.Add(jobsOption);
         command.Add(fileOption);
         command.Add(noLinkOption);
+        command.Add(remoteOption);
 
         command.SetAction(async (parseResult, ct) =>
         {
@@ -48,6 +50,8 @@ internal static class BuildCommandFactory
             var jobs        = parseResult.GetValue(jobsOption);
             var fileArg     = parseResult.GetValue(fileOption);
             var noLink      = parseResult.GetValue(noLinkOption);
+            var remoteArg   = parseResult.GetValue(remoteOption)
+                           ?? Environment.GetEnvironmentVariable("DOTORI_SERVER");
 
             var config   = release ? "release" : "debug";
             var targetId = BuildContext.ResolveTargetId(targetArg);
@@ -67,79 +71,95 @@ internal static class BuildCommandFactory
             var toolchain = BuildContext.DetectToolchain(targetId, compiler);
             if (toolchain is null) return 1;
 
-            var ctx      = BuildContext.MakeTargetContext(targetId, config, runtimeLink, libc, stdlib);
-            var executor = new LocalExecutor(jobs ?? 0);
+            var ctx = BuildContext.MakeTargetContext(targetId, config, runtimeLink, libc, stdlib);
+
+            // Select executor: remote (with local fallback) or local
+            IExecutor executor = remoteArg is not null
+                ? new RemoteExecutor(remoteArg, jobs ?? 0)
+                : new LocalExecutor(jobs ?? 0);
+
+            if (remoteArg is not null)
+                Console.WriteLine($"  Using remote build server: {remoteArg}");
+
             int exitCode = 0;
 
-            foreach (var level in buildOrder)
+            try
             {
-                // Compile all projects in this level in parallel
-                var levelTasks = level.Select(async node =>
+                foreach (var level in buildOrder)
                 {
-                    var model = BuildContext.FlattenProject(node.DotoriPath, ctx);
-                    if (model is null) return 1;
-
-                    Console.WriteLine($"  Building {model.Name} ({node.DotoriPath})");
-
-                    using var checker = new IncrementalChecker(model.ProjectDir);
-                    var planner = new BuildPlanner(model, toolchain, config, targetId);
-
-                    // Single-file mode
-                    if (fileArg is not null)
+                    // Compile all projects in this level in parallel
+                    var levelTasks = level.Select(async node =>
                     {
-                        var absFile = Path.GetFullPath(fileArg);
-                        var singleJob = planner.PlanCompileJobs(null)
-                            .Where(j => string.Equals(j.SourceFile, absFile,
-                                StringComparison.OrdinalIgnoreCase))
-                            .ToList();
+                        var model = BuildContext.FlattenProject(node.DotoriPath, ctx);
+                        if (model is null) return 1;
 
-                        if (singleJob.Count == 0)
+                        Console.WriteLine($"  Building {model.Name} ({node.DotoriPath})");
+
+                        using var checker = new IncrementalChecker(model.ProjectDir);
+                        var planner = new BuildPlanner(model, toolchain, config, targetId);
+
+                        // Single-file mode
+                        if (fileArg is not null)
                         {
-                            Console.Error.WriteLine($"Error: '{fileArg}' is not in project sources.");
+                            var absFile = Path.GetFullPath(fileArg);
+                            var singleJob = planner.PlanCompileJobs(null)
+                                .Where(j => string.Equals(j.SourceFile, absFile,
+                                    StringComparison.OrdinalIgnoreCase))
+                                .ToList();
+
+                            if (singleJob.Count == 0)
+                            {
+                                Console.Error.WriteLine($"Error: '{fileArg}' is not in project sources.");
+                                return 1;
+                            }
+
+                            var results = await executor.RunCompileJobsAsync(
+                                toolchain.CompilerPath, singleJob, ct);
+                            return PrintResults(results);
+                        }
+
+                        // Normal build
+                        var compileJobs = planner.PlanCompileJobs(checker);
+                        if (compileJobs.Count == 0)
+                        {
+                            Console.WriteLine($"  {model.Name}: up to date");
+                            return 0;
+                        }
+
+                        var compileResults = await executor.RunCompileJobsAsync(
+                            toolchain.CompilerPath, compileJobs, ct);
+
+                        int code = PrintResults(compileResults);
+                        if (code != 0) return code;
+
+                        foreach (var job in compileJobs)
+                            checker.Record(job.SourceFile);
+
+                        if (noLink) return 0;
+
+                        var objFiles = compileJobs.Select(j => j.OutputFile).ToList();
+                        var linkJob  = planner.PlanLinkJob(objFiles);
+                        if (linkJob is null) return 0;
+
+                        var linkResult = await executor.RunLinkJobAsync(toolchain.LinkerPath, linkJob, ct);
+                        if (!linkResult.Success)
+                        {
+                            Console.Error.WriteLine(linkResult.Stderr);
                             return 1;
                         }
 
-                        var results = await executor.RunCompileJobsAsync(
-                            toolchain.CompilerPath, singleJob, ct);
-                        return PrintResults(results);
-                    }
-
-                    // Normal build
-                    var compileJobs = planner.PlanCompileJobs(checker);
-                    if (compileJobs.Count == 0)
-                    {
-                        Console.WriteLine($"  {model.Name}: up to date");
+                        Console.WriteLine($"  Linked: {linkJob.OutputFile}");
                         return 0;
-                    }
+                    });
 
-                    var compileResults = await executor.RunCompileJobsAsync(
-                        toolchain.CompilerPath, compileJobs, ct);
-
-                    int code = PrintResults(compileResults);
-                    if (code != 0) return code;
-
-                    foreach (var job in compileJobs)
-                        checker.Record(job.SourceFile);
-
-                    if (noLink) return 0;
-
-                    var objFiles = compileJobs.Select(j => j.OutputFile).ToList();
-                    var linkJob  = planner.PlanLinkJob(objFiles);
-                    if (linkJob is null) return 0;
-
-                    var linkResult = await executor.RunLinkJobAsync(toolchain.LinkerPath, linkJob, ct);
-                    if (!linkResult.Success)
-                    {
-                        Console.Error.WriteLine(linkResult.Stderr);
-                        return 1;
-                    }
-
-                    Console.WriteLine($"  Linked: {linkJob.OutputFile}");
-                    return 0;
-                });
-
-                var levelResults = await Task.WhenAll(levelTasks);
-                if (levelResults.Any(r => r != 0)) { exitCode = 1; break; }
+                    var levelResults = await Task.WhenAll(levelTasks);
+                    if (levelResults.Any(r => r != 0)) { exitCode = 1; break; }
+                }
+            }
+            finally
+            {
+                if (executor is IDisposable disposable)
+                    disposable.Dispose();
             }
 
             return exitCode;

@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+option csharp_namespace = "Dotori.Grpc";
+
+// ─────────────────────────────────────────────
+//  Coordinator  (client = dotori CLI)
+// ─────────────────────────────────────────────
+service BuildCoordinator {
+  // Submit a compile job; response streams back log lines then the result.
+  rpc Compile (CompileRequest)  returns (stream CompileEvent);
+  // Submit a link job.
+  rpc Link    (LinkRequest)     returns (LinkResponse);
+  // Query registered workers.
+  rpc ListWorkers (ListWorkersRequest) returns (ListWorkersResponse);
+}
+
+message CompileRequest {
+  string compiler      = 1;  // compiler executable name (hint for worker routing)
+  string target_triple = 2;  // e.g. "x86_64-unknown-linux-gnu"
+  repeated string args = 3;  // full argument list (no source file — sent separately)
+  string source_hash   = 4;  // SHA-256 hex of source file (for cache lookup)
+  bytes  source_bytes  = 5;  // actual source content (omit if server has it cached)
+  string source_path   = 6;  // original path for diagnostics / relative includes
+}
+
+message CompileEvent {
+  oneof payload {
+    LogLine       log    = 1;
+    CompileResult result = 2;
+  }
+}
+
+message LogLine {
+  enum Stream { STDOUT = 0; STDERR = 1; }
+  Stream stream = 1;
+  string text   = 2;
+}
+
+message CompileResult {
+  bool   success   = 1;
+  int32  exit_code = 2;
+  bytes  obj_bytes = 3;   // compiled object file bytes
+  string obj_hash  = 4;   // SHA-256 of obj_bytes (for client-side cache)
+}
+
+message LinkRequest {
+  string linker        = 1;
+  string target_triple = 2;
+  repeated string args = 3;
+  repeated bytes  obj_files = 4;  // object file contents (in order matching args)
+  string output_name   = 5;
+}
+
+message LinkResponse {
+  bool   success      = 1;
+  int32  exit_code    = 2;
+  bytes  output_bytes = 3;
+  string stdout       = 4;
+  string stderr       = 5;
+}
+
+message ListWorkersRequest {}
+
+message ListWorkersResponse {
+  repeated WorkerInfo workers = 1;
+}
+
+message WorkerInfo {
+  string id             = 1;
+  string address        = 2;
+  repeated string targets = 3;  // supported target triples
+  bool   busy           = 4;
+}
+
+// ─────────────────────────────────────────────
+//  Worker  (called by Coordinator)
+// ─────────────────────────────────────────────
+service BuildWorker {
+  rpc Compile (WorkerCompileRequest) returns (stream WorkerCompileEvent);
+  rpc Link    (WorkerLinkRequest)    returns (WorkerLinkResponse);
+  rpc Health  (HealthRequest)        returns (HealthResponse);
+}
+
+message WorkerCompileRequest {
+  string compiler      = 1;
+  repeated string args = 2;
+  bytes  source_bytes  = 3;
+  string source_path   = 4;
+}
+
+message WorkerCompileEvent {
+  oneof payload {
+    LogLine             log    = 1;
+    WorkerCompileResult result = 2;
+  }
+}
+
+message WorkerCompileResult {
+  bool   success   = 1;
+  int32  exit_code = 2;
+  bytes  obj_bytes = 3;
+}
+
+message WorkerLinkRequest {
+  string linker        = 1;
+  repeated string args = 2;
+  repeated bytes  obj_files = 3;
+  string output_name   = 4;
+}
+
+message WorkerLinkResponse {
+  bool   success      = 1;
+  int32  exit_code    = 2;
+  bytes  output_bytes = 3;
+  string stdout       = 4;
+  string stderr       = 5;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool   ok      = 1;
+  string version = 2;
+  repeated string supported_targets = 3;
+}
