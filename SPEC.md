@@ -910,6 +910,49 @@ dotori --version
 
 ---
 
+### Phase 3: IDE 확장
+
+#### VS Code 확장 (`dotori-vscode`)
+
+- [ ] 언어 서버 프로토콜 (LSP) 기반 `.dotori` 파일 편집 지원
+  - 문법 하이라이팅 (TextMate grammar)
+  - 자동 완성 (project 키워드, 타입 값, 조건 이름)
+  - 호버 툴팁 (각 키워드/값 설명)
+  - 오류 진단 (파서 오류 실시간 표시)
+- [ ] 빌드 Task Provider — `tasks.json` 없이 `dotori build` 실행
+- [ ] Run & Debug 지원 — `launch.json` 없이 `dotori run` 실행 + 디버거 연결
+- [ ] 상태 표시줄: 현재 타겟 / Configuration 표시 및 전환
+- [ ] 프로젝트 트리 뷰 — DAG 의존성 시각화
+
+#### Zed 확장 (`dotori-zed`)
+
+- [ ] `.dotori` 문법 하이라이팅 (Tree-sitter grammar)
+- [ ] 자동 완성 + 오류 진단 (LSP 재사용)
+- [ ] 빌드 / 실행 Task 통합
+
+---
+
+### Phase 4: 레지스트리 서버
+
+#### 패키지 레지스트리 (`dotori-registry`)
+
+- [ ] REST API 서버 (ASP.NET Core)
+  - `GET /packages/{name}` — 패키지 메타데이터 조회
+  - `GET /packages/{name}/{version}` — 특정 버전 정보
+  - `GET /packages/{name}/{version}/download` — 소스 아카이브 다운로드
+  - `POST /packages/publish` — 패키지 배포 (인증 필요)
+  - `GET /packages/search?q=...` — 패키지 검색
+- [ ] 패키지 저장소 백엔드 (파일시스템 / S3 호환 오브젝트 스토리지)
+- [ ] 패키지 무결성 검증 (SHA-256 해시 + 서명)
+- [ ] 사용자 인증 / API 토큰 관리
+- [ ] 패키지 버전 yanking (취약 버전 비활성화)
+- [ ] `dotori login` / `dotori logout` CLI 명령 연동
+- [ ] `dotori publish` CLI 명령 — `package { }` 블록 기반 자동 배포
+- [ ] Docker / Kubernetes 배포 구성
+- [ ] 미러 / 프록시 레지스트리 지원 (사내 레지스트리 구축)
+
+---
+
 ## 12. 디렉토리 구조
 
 ```
@@ -1020,42 +1063,7 @@ dotori/
 
 ---
 
-## 15. 작업 우선순위 및 예상 순서
-
-```
-Phase 1 — 로컬 빌드
-1.  [ ] 프로젝트 셋업 + NativeAOT 검증                  (1~2일)
-2.  [ ] DSL 파서 (project + package, 조건 섹션)         (3~5일)
-3.  [ ] ProjectLocator (탐색 + 대화형 선택)             (2~3일)
-4.  [ ] ProjectDagBuilder (path 의존성 DAG)             (2~3일)
-5.  [ ] 툴체인 감지 (Windows/Linux/macOS)               (2~3일)
-6.  [ ] Glob 확장기                                     (1~2일)
-7.  [ ] MSVC 드라이버 (windows-x64)                    (3~5일)
-8.  [ ] Clang 드라이버 (linux-x64)                     (2~3일)
-9.  [ ] 빌드 그래프 DAG + 병렬 빌드                    (3~5일)
-10. [ ] Hello World — windows-x64, linux-x64, macos-arm64
-                                                   (1~2일)
-11. [ ] 증분 빌드                                      (3~5일)
-12. [ ] 조건 섹션 병합 + 런타임 강제 규칙              (2~3일)
-13. [ ] C++ Modules (MSVC → Clang)                    (1~2주)
-14. [ ] 크로스 컴파일 — iOS/tvOS/watchOS               (3~5일)
-15. [ ] 크로스 컴파일 — Android NDK                   (3~5일)
-16. [ ] WASM — Emscripten + bare                       (3~5일)
-17. [ ] Linux musl + static                            (2~3일)
-18. [ ] PCH + Unity Build                              (3~5일)
-19. [ ] 패키지 매니저 (PubGrub + git + lock)           (1~2주)
-20. [ ] CLI 전체 완성                                  (2~3일)
-
-Phase 2 — 분산 빌드
-21. [ ] RemoteExecutor + BuildServer + Worker           (4~6주)
-
-Phase 3 — 생태계
-22. [ ] 레지스트리 서버, VS Code, Zed 확장 구현
-```
-
----
-
-## 16. Claude Code 작업 지시 시 권장 사항
+## 15. Claude Code 작업 지시 시 권장 사항
 
 - **PLAN.md**: 확정된 타겟/런타임 매트릭스, 파일 확장자 규칙 포함
 - **CHECKPOINT.md**: 단계 완료 시 검증된 타겟 목록 기록
