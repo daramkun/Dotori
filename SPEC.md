@@ -778,15 +778,15 @@ dotori (CLI)
 ### Phase 1-F: 컴파일러 드라이버 + 빌드 플래너
 
 - [x] `MsvcDriver`, `ClangDriver`, `EmscriptenDriver`
-- [ ] `MsvcLinker`, `LldLinker`, `AppleLinker`
+- [x] `MsvcLinker`, `LldLinker`, `AppleLinker`
 - [x] Glob 확장기
 - [x] DAG 생성 (파일 단위: `.cpp` → `.obj`, `.cppm` → `.bmi`)
-- [ ] C++ Modules 스캔 + BMI 순서 결정
-- [ ] PCH 플래너 (Modules와 PCH 동시 사용 시 경고)
+- [x] C++ Modules 스캔 + BMI 순서 결정
+- [x] PCH 플래너 (Modules와 PCH 동시 사용 시 경고)
 - [x] Unity Batcher (Modules 소스 자동 제외)
 - [x] 증분 빌드 해시 DB (`.dotori-cache/hashes.db`)
 - [x] 병렬 빌드 (`Channel<BuildJob>`)
-- [ ] 단일 파일 빌드 (`--file`)
+- [x] 단일 파일 빌드 (`--file`)
   - 지정 파일이 프로젝트 `sources` 목록에 포함되어 있는지 검증
   - **Unity Build 꺼진 경우**
     - 해당 `.cpp` 만 컴파일 → `.obj` 생성

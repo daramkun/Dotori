@@ -22,6 +22,7 @@ internal static class BuildCommandFactory
         var jobsOption        = new Option<int?>("--jobs")            { Description = "Number of parallel jobs" };
         var fileOption        = new Option<string?>("--file")         { Description = "Build a single source file" };
         var noLinkOption      = new Option<bool>("--no-link")         { Description = "Compile only, do not link" };
+        var noUnityOption     = new Option<bool>("--no-unity")        { Description = "Bypass Unity Build for --file (compile file directly)" };
         var remoteOption      = new Option<string?>("--remote")       { Description = "Remote build server address (e.g. http://build-server:5100)" };
 
         command.Add(projectOption);
@@ -35,6 +36,7 @@ internal static class BuildCommandFactory
         command.Add(jobsOption);
         command.Add(fileOption);
         command.Add(noLinkOption);
+        command.Add(noUnityOption);
         command.Add(remoteOption);
 
         command.SetAction(async (parseResult, ct) =>
@@ -50,6 +52,7 @@ internal static class BuildCommandFactory
             var jobs        = parseResult.GetValue(jobsOption);
             var fileArg     = parseResult.GetValue(fileOption);
             var noLink      = parseResult.GetValue(noLinkOption);
+            var noUnity     = parseResult.GetValue(noUnityOption);
             var remoteArg   = parseResult.GetValue(remoteOption)
                            ?? Environment.GetEnvironmentVariable("DOTORI_SERVER");
 
@@ -102,20 +105,70 @@ internal static class BuildCommandFactory
                         if (fileArg is not null)
                         {
                             var absFile = Path.GetFullPath(fileArg);
-                            var singleJob = planner.PlanCompileJobs(null)
-                                .Where(j => string.Equals(j.SourceFile, absFile,
-                                    StringComparison.OrdinalIgnoreCase))
-                                .ToList();
+                            var ext = Path.GetExtension(absFile);
+                            bool isModuleFile = ext.Equals(".cppm", StringComparison.OrdinalIgnoreCase) ||
+                                                ext.Equals(".ixx",  StringComparison.OrdinalIgnoreCase);
 
-                            if (singleJob.Count == 0)
+                            // Plan PCH first (rebuild if stale)
+                            var pchPlan = planner.PlanPch(checker);
+                            if (pchPlan?.BuildJob is not null)
+                            {
+                                var pchResults = await executor.RunCompileJobsAsync(
+                                    toolchain.CompilerPath,
+                                    new[] { pchPlan.BuildJob }, ct);
+                                var pchCode = PrintResults(pchResults);
+                                if (pchCode != 0) return pchCode;
+                                checker.Record(pchPlan.BuildJob.SourceFile);
+                            }
+
+                            var singleJob = planner.PlanSingleFileJob(absFile, noUnity);
+
+                            if (singleJob is null)
                             {
                                 Console.Error.WriteLine($"Error: '{fileArg}' is not in project sources.");
                                 return 1;
                             }
 
-                            var results = await executor.RunCompileJobsAsync(
-                                toolchain.CompilerPath, singleJob, ct);
-                            return PrintResults(results);
+                            var fileResults = await executor.RunCompileJobsAsync(
+                                toolchain.CompilerPath, new[] { singleJob }, ct);
+                            int fileCode = PrintResults(fileResults);
+                            if (fileCode != 0) return fileCode;
+
+                            // Module files (.cppm/.ixx): --no-link is implicit
+                            if (isModuleFile || noLink)
+                                return 0;
+
+                            // Link with existing obj files + this new obj
+                            var existingObjs = Directory.Exists(
+                                Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
+                                             $"{targetId}-{config.ToLower()}"))
+                                ? Directory.GetFiles(
+                                    Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
+                                                 $"{targetId}-{config.ToLower()}"), "*.o")
+                                  .Concat(Directory.GetFiles(
+                                    Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
+                                                 $"{targetId}-{config.ToLower()}"), "*.obj"))
+                                  .ToList()
+                                : new List<string>();
+
+                            // Replace any stale obj for this file with the new one
+                            var allObjs = existingObjs
+                                .Where(f => !string.Equals(f, singleJob.OutputFile,
+                                    StringComparison.OrdinalIgnoreCase))
+                                .Append(singleJob.OutputFile)
+                                .ToList();
+
+                            var linkJob = planner.PlanLinkJob(allObjs);
+                            if (linkJob is null) return 0;
+
+                            var linkResult = await executor.RunLinkJobAsync(toolchain.LinkerPath, linkJob, ct);
+                            if (!linkResult.Success)
+                            {
+                                Console.Error.WriteLine(linkResult.Stderr);
+                                return 1;
+                            }
+                            Console.WriteLine($"  Linked: {linkJob.OutputFile}");
+                            return 0;
                         }
 
                         // Normal build
