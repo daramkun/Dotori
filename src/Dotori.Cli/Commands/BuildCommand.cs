@@ -85,6 +85,11 @@ internal static class BuildCommandFactory
                 Console.WriteLine($"  Using remote build server: {remoteArg}");
 
             int exitCode = 0;
+            // Track dotoriPath → built library output (for transitive linking)
+            var builtLibraries = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
+            // Track whether --file was found in any project
+            int fileFound = 0; // 0 = not found, 1 = found (using int for Interlocked)
 
             try
             {
@@ -93,13 +98,19 @@ internal static class BuildCommandFactory
                     // Compile all projects in this level in parallel
                     var levelTasks = level.Select(async node =>
                     {
-                        var model = BuildContext.FlattenProject(node.DotoriPath, ctx);
+                        var model = BuildContext.FlattenProject(node.DotoriPath, ctx, node);
                         if (model is null) return 1;
 
                         Console.WriteLine($"  Building {model.Name} ({node.DotoriPath})");
 
                         using var checker = new IncrementalChecker(model.ProjectDir);
                         var planner = new BuildPlanner(model, toolchain, config, targetId);
+
+                        // Collect transitive dependency library paths
+                        var depLibs = CollectDepLibs(node, builtLibraries);
+
+                        // PCH — plan once, used by both --file and normal build paths
+                        var pchPlan = planner.PlanPch(checker);
 
                         // Single-file mode
                         if (fileArg is not null)
@@ -110,7 +121,6 @@ internal static class BuildCommandFactory
                                                 ext.Equals(".ixx",  StringComparison.OrdinalIgnoreCase);
 
                             // Plan PCH first (rebuild if stale)
-                            var pchPlan = planner.PlanPch(checker);
                             if (pchPlan?.BuildJob is not null)
                             {
                                 var pchResults = await executor.RunCompileJobsAsync(
@@ -125,9 +135,15 @@ internal static class BuildCommandFactory
 
                             if (singleJob is null)
                             {
-                                Console.Error.WriteLine($"Error: '{fileArg}' is not in project sources.");
-                                return 1;
+                                // File not in this project — register existing library output for transitive linking
+                                var existingLinkOut = planner.PlanLinkJob(Enumerable.Empty<string>());
+                                if (existingLinkOut is not null && File.Exists(existingLinkOut.OutputFile))
+                                    builtLibraries[node.DotoriPath] = existingLinkOut.OutputFile;
+                                return 0;
                             }
+
+                            // Mark file as found in this project
+                            System.Threading.Interlocked.Exchange(ref fileFound, 1);
 
                             var fileResults = await executor.RunCompileJobsAsync(
                                 toolchain.CompilerPath, new[] { singleJob }, ct);
@@ -151,50 +167,88 @@ internal static class BuildCommandFactory
                                   .ToList()
                                 : new List<string>();
 
-                            // Replace any stale obj for this file with the new one
+                            // Replace any stale obj for this file with the new one, include dep libs
                             var allObjs = existingObjs
                                 .Where(f => !string.Equals(f, singleJob.OutputFile,
                                     StringComparison.OrdinalIgnoreCase))
                                 .Append(singleJob.OutputFile)
+                                .Concat(depLibs)
                                 .ToList();
 
-                            var linkJob = planner.PlanLinkJob(allObjs);
-                            if (linkJob is null) return 0;
+                            var singleLinkJob = planner.PlanLinkJob(allObjs);
+                            if (singleLinkJob is null) return 0;
 
-                            var linkResult = await executor.RunLinkJobAsync(toolchain.LinkerPath, linkJob, ct);
-                            if (!linkResult.Success)
+                            var singleLinkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), singleLinkJob, ct);
+                            if (!singleLinkResult.Success)
                             {
-                                Console.Error.WriteLine(linkResult.Stderr);
+                                Console.Error.WriteLine(singleLinkResult.Stderr);
                                 return 1;
                             }
-                            Console.WriteLine($"  Linked: {linkJob.OutputFile}");
+                            Console.WriteLine($"  Linked: {singleLinkJob.OutputFile}");
                             return 0;
                         }
 
-                        // Normal build
-                        var compileJobs = planner.PlanCompileJobs(checker);
-                        if (compileJobs.Count == 0)
+                        // Normal build — PCH first (pchPlan already computed above)
+                        if (pchPlan?.BuildJob is not null)
+                        {
+                            var pchResults = await executor.RunCompileJobsAsync(
+                                toolchain.CompilerPath, new[] { pchPlan.BuildJob }, ct);
+                            int pchCode = PrintResults(pchResults);
+                            if (pchCode != 0) return pchCode;
+                            checker.Record(pchPlan.BuildJob.SourceFile);
+                        }
+
+                        // Modules next (order-sensitive BMI generation)
+                        var moduleJobs = await planner.PlanModuleJobsAsync(ct: ct);
+                        IReadOnlyDictionary<string, string>? bmiPaths = null;
+                        if (moduleJobs.Count > 0)
+                        {
+                            // BMI jobs must run in dependency order (sequential)
+                            foreach (var bmiJob in moduleJobs)
+                            {
+                                var bmiResults = await executor.RunCompileJobsAsync(
+                                    toolchain.CompilerPath, new[] { bmiJob }, ct);
+                                int bmiCode = PrintResults(bmiResults);
+                                if (bmiCode != 0) return bmiCode;
+                            }
+                            bmiPaths = BuildPlanner.ExtractBmiPaths(moduleJobs);
+                        }
+
+                        var compileJobs = planner.PlanCompileJobs(checker, pchPlan: pchPlan, bmiPaths: bmiPaths);
+                        if (compileJobs.Count == 0 && moduleJobs.Count == 0)
                         {
                             Console.WriteLine($"  {model.Name}: up to date");
                             return 0;
                         }
 
-                        var compileResults = await executor.RunCompileJobsAsync(
-                            toolchain.CompilerPath, compileJobs, ct);
+                        if (compileJobs.Count > 0)
+                        {
+                            var compileResults = await executor.RunCompileJobsAsync(
+                                toolchain.CompilerPath, compileJobs, ct);
 
-                        int code = PrintResults(compileResults);
-                        if (code != 0) return code;
+                            int code = PrintResults(compileResults);
+                            if (code != 0) return code;
 
-                        foreach (var job in compileJobs)
-                            checker.Record(job.SourceFile);
+                            foreach (var job in compileJobs)
+                                checker.Record(job.SourceFile);
+                        }
 
                         if (noLink) return 0;
 
-                        var objFiles = compileJobs.Select(j => j.OutputFile).ToList();
+                        // Static libraries only contain .o files; executables/shared libs get .a files too
+                        var isStaticLib = model.Type == Dotori.Core.Parsing.ProjectType.StaticLibrary;
+                        // For Clang modules: .pcm files must also be linked
+                        var modulePcmFiles = (bmiPaths is not null && toolchain.Kind != Dotori.Core.Toolchain.CompilerKind.Msvc)
+                            ? bmiPaths.Values.ToList()
+                            : Enumerable.Empty<string>();
+                        var objFiles = compileJobs.Select(j => j.OutputFile)
+                            .Concat(modulePcmFiles)
+                            .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
+                            .ToList();
                         var linkJob  = planner.PlanLinkJob(objFiles);
                         if (linkJob is null) return 0;
 
-                        var linkResult = await executor.RunLinkJobAsync(toolchain.LinkerPath, linkJob, ct);
+                        var linkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), linkJob, ct);
                         if (!linkResult.Success)
                         {
                             Console.Error.WriteLine(linkResult.Stderr);
@@ -202,6 +256,7 @@ internal static class BuildCommandFactory
                         }
 
                         Console.WriteLine($"  Linked: {linkJob.OutputFile}");
+                        builtLibraries[node.DotoriPath] = linkJob.OutputFile;
                         return 0;
                     });
 
@@ -215,10 +270,42 @@ internal static class BuildCommandFactory
                     disposable.Dispose();
             }
 
+            // If --file was specified but not found in any project, report error
+            if (fileArg is not null && exitCode == 0 && fileFound == 0)
+            {
+                Console.Error.WriteLine($"Error: '{fileArg}' is not in any project sources.");
+                return 1;
+            }
+
             return exitCode;
         });
 
         return command;
+    }
+
+    private static IReadOnlyList<string> CollectDepLibs(
+        ProjectNode node,
+        System.Collections.Concurrent.ConcurrentDictionary<string, string> builtLibraries)
+    {
+        var libs = new List<string>();
+        CollectDepLibsRecursive(node, builtLibraries, libs,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        return libs;
+    }
+
+    private static void CollectDepLibsRecursive(
+        ProjectNode node,
+        System.Collections.Concurrent.ConcurrentDictionary<string, string> builtLibraries,
+        List<string> libs,
+        HashSet<string> visited)
+    {
+        foreach (var dep in node.Dependencies)
+        {
+            if (!visited.Add(dep.DotoriPath)) continue;
+            if (builtLibraries.TryGetValue(dep.DotoriPath, out var libPath))
+                libs.Add(libPath);
+            CollectDepLibsRecursive(dep, builtLibraries, libs, visited);
+        }
     }
 
     private static int PrintResults(IReadOnlyList<JobResult> results)

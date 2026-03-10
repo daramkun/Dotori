@@ -87,9 +87,14 @@ public static class ClangDriver
         foreach (var d in model.Defines)
             flags.Add($"-D{d}");
 
-        // Include directories
+        // Include directories (resolve relative to project root)
         foreach (var h in model.Headers)
-            flags.Add($"-I\"{h.Path}\"");
+        {
+            var absPath = Path.IsPathRooted(h.Path)
+                ? h.Path
+                : Path.GetFullPath(Path.Combine(model.ProjectDir, h.Path));
+            flags.Add($"-I\"{absPath}\"");
+        }
 
         // macOS minimum version
         if (model.MacosMin is not null &&

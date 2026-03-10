@@ -32,6 +32,10 @@ public static class GlobExpander
     }
 
     /// <summary>Match a single glob pattern within <paramref name="baseDir"/>.</summary>
+    /// <summary>Returns true if the pattern contains glob wildcards (* or ?).</summary>
+    public static bool IsGlobPattern(string pattern) =>
+        pattern.Contains('*') || pattern.Contains('?');
+
     public static IEnumerable<string> MatchGlob(string baseDir, string pattern)
     {
         // Normalize pattern separators

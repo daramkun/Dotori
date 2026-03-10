@@ -1,8 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Dotori.Core.Build;
+
+// NativeAOT-safe serialization context for the hash dictionary
+[JsonSerializable(typeof(Dictionary<string, string>))]
+internal sealed partial class HashDbJsonContext : JsonSerializerContext { }
 
 /// <summary>
 /// Hash-based incremental build checker.
@@ -57,8 +62,7 @@ public sealed class IncrementalChecker : IDisposable
     public void Save()
     {
         if (!_dirty) return;
-        var json = JsonSerializer.Serialize(_hashes,
-            new JsonSerializerOptions { WriteIndented = false });
+        var json = JsonSerializer.Serialize(_hashes, HashDbJsonContext.Default.DictionaryStringString);
         File.WriteAllText(_dbPath, json, Encoding.UTF8);
         _dirty = false;
     }
@@ -71,8 +75,8 @@ public sealed class IncrementalChecker : IDisposable
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var json = File.ReadAllText(path, Encoding.UTF8);
-            var loaded = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            var json   = File.ReadAllText(path, Encoding.UTF8);
+            var loaded = JsonSerializer.Deserialize(json, HashDbJsonContext.Default.DictionaryStringString);
             return loaded is not null
                 ? new Dictionary<string, string>(loaded, StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
