@@ -39,11 +39,27 @@ public static class UnityBatcher
         excluded.UnionWith(moduleSet);
 
         // Exclude files matching unity-build exclude patterns
+        // Patterns are relative to project dir, sources are absolute — match by suffix
         foreach (var pattern in excludePatterns)
         {
-            var baseDir = Path.GetDirectoryName(sources.FirstOrDefault() ?? string.Empty) ?? string.Empty;
-            foreach (var file in GlobExpander.MatchGlob(baseDir, pattern))
-                excluded.Add(file);
+            var normalizedPattern = pattern.Replace('\\', '/').TrimStart('/');
+            foreach (var src in sources)
+            {
+                var normalizedSrc = src.Replace('\\', '/');
+                // Check exact suffix match (e.g. pattern "src/main.cpp" against "/proj/src/main.cpp")
+                if (normalizedSrc.EndsWith('/' + normalizedPattern, StringComparison.OrdinalIgnoreCase) ||
+                    normalizedSrc.Equals(normalizedPattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    excluded.Add(src);
+                }
+                else if (GlobExpander.IsGlobPattern(pattern))
+                {
+                    // For real glob patterns, try matching with the source's parent dirs as base
+                    var baseDir = Path.GetDirectoryName(src) ?? string.Empty;
+                    foreach (var file in GlobExpander.MatchGlob(baseDir, pattern))
+                        excluded.Add(file);
+                }
+            }
         }
 
         // Also exclude module extensions by extension

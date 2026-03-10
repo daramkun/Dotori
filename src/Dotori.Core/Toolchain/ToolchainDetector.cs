@@ -241,6 +241,23 @@ public static class ToolchainDetector
     private static ToolchainInfo? DetectMacos(string triple)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return null;
+
+        var sdkPath = RunXcrun("--sdk macosx --show-sdk-path");
+
+        // Prefer PATH clang++ (e.g. LLVM from brew/mise) over Apple Clang for better C++23 Modules support
+        var pathClang = FindInPath("clang++");
+        if (pathClang is not null)
+        {
+            return new ToolchainInfo
+            {
+                Kind         = CompilerKind.Clang,
+                CompilerPath = pathClang,
+                LinkerPath   = pathClang,
+                TargetTriple = triple,
+                AppleSdk     = sdkPath,
+            };
+        }
+
         return DetectApple("macosx", triple);
     }
 

@@ -128,9 +128,11 @@ internal static class BuildContext
 
     /// <summary>
     /// Flatten a project for the given target context.
+    /// Optionally injects the public headers from all transitive dependency nodes.
     /// </summary>
     internal static FlatProjectModel? FlattenProject(
-        string dotoriPath, TargetContext ctx)
+        string dotoriPath, TargetContext ctx,
+        ProjectNode? node = null)
     {
         try
         {
@@ -140,12 +142,54 @@ internal static class BuildContext
                 Console.Error.WriteLine($"Error: No project declaration in '{dotoriPath}'.");
                 return null;
             }
-            return ProjectFlattener.Flatten(file.Project, dotoriPath, ctx);
+            var model = ProjectFlattener.Flatten(file.Project, dotoriPath, ctx);
+
+            // Inject public headers from all transitive dependencies
+            if (node is not null)
+                InjectDepHeaders(model, node, ctx, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+            return model;
         }
         catch (ParseException ex)
         {
             Console.Error.WriteLine($"Parse error: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Recursively collect public headers from dependency nodes and add them to model.
+    /// </summary>
+    private static void InjectDepHeaders(
+        FlatProjectModel model,
+        ProjectNode node,
+        TargetContext ctx,
+        HashSet<string> visited)
+    {
+        foreach (var dep in node.Dependencies)
+        {
+            if (!visited.Add(dep.DotoriPath)) continue;
+
+            try
+            {
+                var file = DotoriParser.ParseFile(dep.DotoriPath);
+                if (file.Project is null) continue;
+                var depModel = ProjectFlattener.Flatten(file.Project, dep.DotoriPath, ctx);
+
+                foreach (var h in depModel.Headers.Where(h => h.IsPublic))
+                {
+                    var absPath = Path.IsPathRooted(h.Path)
+                        ? h.Path
+                        : Path.GetFullPath(Path.Combine(depModel.ProjectDir, h.Path));
+                    // Add only if not already present
+                    if (!model.Headers.Any(existing =>
+                            string.Equals(existing.Path, absPath, StringComparison.OrdinalIgnoreCase)))
+                        model.Headers.Add(new Dotori.Core.Parsing.HeaderItem(isPublic: false, path: absPath));
+                }
+            }
+            catch { /* skip unreadable deps */ }
+
+            InjectDepHeaders(model, dep, ctx, visited);
         }
     }
 }

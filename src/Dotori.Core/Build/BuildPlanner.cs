@@ -44,10 +44,15 @@ public sealed class BuildPlanner
     /// Handles unity batching, PCH, and incremental builds.
     /// Does NOT include module BMI compile jobs (use <see cref="PlanModuleJobsAsync"/> for those).
     /// </summary>
+    /// <param name="checker">Optional incremental build checker.</param>
+    /// <param name="pchPlan">Optional pre-compiled header plan.</param>
+    /// <param name="noUnity">If true, bypass unity build batching.</param>
+    /// <param name="bmiPaths">Optional map of logical module name → .pcm/.ifc path for import flags.</param>
     public IReadOnlyList<CompileJob> PlanCompileJobs(
         IncrementalChecker? checker = null,
         PchPlanner.PchPlan? pchPlan = null,
-        bool                noUnity = false)
+        bool                noUnity = false,
+        IReadOnlyDictionary<string, string>? bmiPaths = null)
     {
         // Expand source globs
         var includes = _model.Sources.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
@@ -80,47 +85,73 @@ public sealed class BuildPlanner
             filesToCompile = allSources.Where(f => !moduleSet.Contains(f)).ToList();
         }
 
-        return BuildCompileJobs(filesToCompile, checker, pchPlan);
+        return BuildCompileJobs(filesToCompile, checker, pchPlan, bmiPaths);
     }
 
     private IReadOnlyList<CompileJob> BuildCompileJobs(
         IReadOnlyList<string> files,
         IncrementalChecker? checker,
-        PchPlanner.PchPlan? pchPlan)
+        PchPlanner.PchPlan? pchPlan,
+        IReadOnlyDictionary<string, string>? bmiPaths = null)
     {
         var jobs = new List<CompileJob>();
 
         if (_toolchain.Kind == CompilerKind.Msvc)
         {
-            var flags = MsvcDriver.CompileFlags(_model, _toolchain, _config, _cacheDir);
-            if (pchPlan is not null) flags = PchPlanner.AddUseFlags(flags, pchPlan).ToList();
+            var baseFlags = MsvcDriver.CompileFlags(_model, _toolchain, _config, _cacheDir);
+            if (pchPlan is not null) baseFlags = PchPlanner.AddUseFlags(baseFlags, pchPlan).ToList();
             foreach (var src in files)
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
+                var flags = AddModuleImportFlags(src, baseFlags, bmiPaths, _toolchain.Kind);
                 jobs.Add(MsvcDriver.MakeCompileJob(src, _cacheDir, flags));
             }
         }
         else if (_toolchain.Kind == CompilerKind.Emscripten)
         {
-            var flags = EmscriptenDriver.CompileFlags(_model, _cacheDir);
+            var baseFlags = EmscriptenDriver.CompileFlags(_model, _cacheDir);
             foreach (var src in files)
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
-                jobs.Add(EmscriptenDriver.MakeCompileJob(src, _cacheDir, flags));
+                jobs.Add(EmscriptenDriver.MakeCompileJob(src, _cacheDir, baseFlags));
             }
         }
         else  // Clang
         {
-            var flags = ClangDriver.CompileFlags(_model, _toolchain, _config, _cacheDir);
-            if (pchPlan is not null) flags = PchPlanner.AddUseFlags(flags, pchPlan).ToList();
+            var baseFlags = ClangDriver.CompileFlags(_model, _toolchain, _config, _cacheDir);
+            if (pchPlan is not null) baseFlags = PchPlanner.AddUseFlags(baseFlags, pchPlan).ToList();
             foreach (var src in files)
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
+                var flags = AddModuleImportFlags(src, baseFlags, bmiPaths, _toolchain.Kind);
                 jobs.Add(ClangDriver.MakeCompileJob(src, _cacheDir, flags));
             }
         }
 
         return jobs;
+    }
+
+    /// <summary>
+    /// Scans a source file for module imports and returns flags augmented with
+    /// -fmodule-file= (Clang) or /reference (MSVC) for each imported module.
+    /// </summary>
+    private static IReadOnlyList<string> AddModuleImportFlags(
+        string sourceFile,
+        IReadOnlyList<string> baseFlags,
+        IReadOnlyDictionary<string, string>? bmiPaths,
+        CompilerKind kind)
+    {
+        if (bmiPaths is null || bmiPaths.Count == 0) return baseFlags;
+
+        var dep = ModuleScanner.ScanByText(sourceFile);
+        if (dep.Requires.Count == 0) return baseFlags;
+
+        var importFlags = ModuleSorter.BuildImportFlags(dep.Requires, bmiPaths, kind);
+        if (importFlags.Count == 0) return baseFlags;
+
+        var combined = new List<string>(baseFlags);
+        combined.AddRange(importFlags);
+        return combined;
     }
 
     // ─── PCH planning ─────────────────────────────────────────────────────────
@@ -145,6 +176,23 @@ public sealed class BuildPlanner
     }
 
     // ─── Module jobs ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds a map of logical module name → BMI file path from a list of module compile jobs.
+    /// The job's source file is scanned to find the provided module name.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ExtractBmiPaths(
+        IReadOnlyList<CompileJob> moduleJobs)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var job in moduleJobs)
+        {
+            var dep = ModuleScanner.ScanByText(job.SourceFile);
+            if (dep.Provides is not null)
+                map[dep.Provides] = job.OutputFile;
+        }
+        return map;
+    }
 
     /// <summary>
     /// Scan and sort module files, then produce BMI compile jobs in dependency order.
@@ -181,6 +229,7 @@ public sealed class BuildPlanner
     /// <summary>
     /// Plan the link job (returns null for header-only projects).
     /// Uses the appropriate linker: MsvcLinker, AppleLinker, LldLinker, or EmscriptenDriver.
+    /// For static libraries on non-MSVC targets, uses 'ar rcs'.
     /// </summary>
     public LinkJob? PlanLinkJob(IEnumerable<string> objFiles)
     {
@@ -192,6 +241,19 @@ public sealed class BuildPlanner
 
         var outName = GetOutputName();
         var outFile = Path.Combine(outDir, outName);
+
+        // Static library on non-MSVC: use ar rcs
+        if (_model.Type == ProjectType.StaticLibrary && _toolchain.Kind != CompilerKind.Msvc)
+        {
+            var args = new List<string> { "rcs", $"\"{outFile}\"" };
+            foreach (var obj in objFiles) args.Add($"\"{obj}\"");
+            return new LinkJob
+            {
+                InputFiles = objFiles.ToArray(),
+                OutputFile = outFile,
+                Args       = args.ToArray(),
+            };
+        }
 
         if (_toolchain.Kind == CompilerKind.Msvc)
         {
@@ -214,6 +276,32 @@ public sealed class BuildPlanner
             var flags = LldLinker.LinkFlags(_model, _toolchain, outFile);
             return LldLinker.MakeLinkJob(objFiles, outFile, flags);
         }
+    }
+
+    /// <summary>
+    /// Returns the correct linker path for this project's link step.
+    /// Static libraries on non-MSVC use 'ar'; others use the toolchain linker.
+    /// </summary>
+    public string GetLinkerPath()
+    {
+        if (_model.Type == ProjectType.StaticLibrary && _toolchain.Kind != CompilerKind.Msvc)
+            return FindAr();
+        return _toolchain.LinkerPath;
+    }
+
+    private static string FindAr()
+    {
+        // Try llvm-ar first (alongside clang), then plain ar
+        foreach (var candidate in new[] { "llvm-ar", "ar" })
+        {
+            foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+            {
+                var full = Path.Combine(dir, candidate);
+                if (File.Exists(full)) return full;
+                if (OperatingSystem.IsWindows() && File.Exists(full + ".exe")) return full + ".exe";
+            }
+        }
+        return "ar"; // fallback: assume ar is in PATH
     }
 
     // ─── Single-file build support ────────────────────────────────────────────

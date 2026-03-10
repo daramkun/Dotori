@@ -875,25 +875,27 @@ dotori --version
 
 ### Phase 1-I: Hello World 검증
 
-- [ ] `dotori build` + `dotori run` (현재 디렉토리 탐색 UX 검증)
-- [ ] 멀티 프로젝트 DAG 빌드 검증 (`app` → `lib` → `core` 구조)
-- [ ] 순환 의존성 오류 메시지 검증
+- [x] `dotori build` + `dotori run` (현재 디렉토리 탐색 UX 검증)
+- [x] 멀티 프로젝트 DAG 빌드 검증 (`app` → `lib` → `core` 구조)
+- [x] 순환 의존성 오류 메시지 검증
 - [ ] 검증 환경
   - `windows-x64` (MSVC)
   - `windows-x64` (Clang + lld-link, MSVC 없음)
   - `linux-x64` (glibc + libstdc++ + dynamic)
   - `linux-x64` (musl + static → 완전 정적 바이너리)
-  - `macos-arm64`
+  - [x] `macos-arm64`
   - `ios-arm64` (macOS에서 크로스)
   - `android-arm64`
   - `wasm32-emscripten`
   - `wasm32-bare`
-- [ ] C++ Modules 검증 (MSVC + Clang)
+- [x] C++ Modules 검증 (Clang, macos-arm64)
 - [ ] git 의존성 + path 의존성 검증
-- [ ] 단일 파일 빌드 검증
-  - `--file` + 링크 / `--file --no-link` / `--file --no-unity` 세 케이스
-  - Unity Build 켜진 프로젝트에서 `--file` → 올바른 unity batch 파일이 선택되는지 확인
-  - `.cppm` 지정 시 BMI만 재생성되는지 확인
+- [x] 단일 파일 빌드 검증
+  - [x] `--file` + 링크 / `--file --no-link` / `--file --no-unity` 세 케이스
+  - [x] Unity Build 켜진 프로젝트에서 `--file` → 올바른 unity batch 파일이 선택되는지 확인
+  - [x] `.cppm` 지정 시 BMI만 재생성되는지 확인
+- [x] PCH 빌드 검증 (macos-arm64)
+- [x] Unity Build 검증 (macos-arm64, exclude 패턴 동작 확인)
 
 ---
 
