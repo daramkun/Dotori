@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  worker1:
+    build:
+      context: .
+      dockerfile: src/Dotori.Worker/Dockerfile
+    ports:
+      - "5101:5100"
+
+  worker2:
+    build:
+      context: .
+      dockerfile: src/Dotori.Worker/Dockerfile
+    ports:
+      - "5102:5100"
+
+  server:
+    build:
+      context: .
+      dockerfile: src/Dotori.BuildServer/Dockerfile
+    ports:
+      - "5100:5100"
+    environment:
+      - DOTORI_WORKERS=http://worker1:5100,http://worker2:5100
+    depends_on:
+      - worker1
+      - worker2

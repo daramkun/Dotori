@@ -16,7 +16,7 @@ public sealed class JobResult
 /// <summary>
 /// Executes compile and link jobs locally, with optional parallelism.
 /// </summary>
-public sealed class LocalExecutor
+public sealed class LocalExecutor : IExecutor
 {
     private readonly int _maxParallelism;
 

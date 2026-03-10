@@ -899,12 +899,12 @@ dotori --version
 
 ### Phase 2: 분산 빌드
 
-- [ ] `RemoteExecutor` 클라이언트
-- [ ] `BuildServer` (Coordinator, ASP.NET Core)
-- [ ] `WorkerAgent`
-- [ ] 원격 빌드 캐시
-- [ ] 서버 연결 실패 시 로컬 폴백
-- [ ] Docker / Kubernetes 배포
+- [x] `RemoteExecutor` 클라이언트
+- [x] `BuildServer` (Coordinator, ASP.NET Core)
+- [x] `WorkerAgent`
+- [x] 원격 빌드 캐시
+- [x] 서버 연결 실패 시 로컬 폴백
+- [x] Docker / Kubernetes 배포
 
 ---
 
