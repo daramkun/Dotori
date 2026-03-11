@@ -914,27 +914,27 @@ dotori --version
 
 #### VS Code 확장 (`dotori-vscode`)
 
-- [ ] 언어 서버 프로토콜 (LSP) 기반 `.dotori` 파일 편집 지원
-  - 문법 하이라이팅 (TextMate grammar)
-  - 자동 완성 (project 키워드, 타입 값, 조건 이름)
-  - 호버 툴팁 (각 키워드/값 설명)
-  - 오류 진단 (파서 오류 실시간 표시)
-- [ ] 빌드 Task Provider — `tasks.json` 없이 `dotori build` 실행
-- [ ] Run & Debug 지원 — `launch.json` 없이 `dotori run` 실행 + 디버거 연결
-- [ ] 상태 표시줄: 현재 타겟 / Configuration 표시 및 전환
+- [x] 언어 서버 프로토콜 (LSP) 기반 `.dotori` 파일 편집 지원
+  - [x] 문법 하이라이팅 (TextMate grammar)
+  - [x] 자동 완성 (project 키워드, 타입 값, 조건 이름)
+  - [ ] 호버 툴팁 (각 키워드/값 설명)
+  - [ ] 오류 진단 (파서 오류 실시간 표시)
+- [x] 빌드 Task Provider — `tasks.json` 없이 `dotori build` 실행
+- [x] Run & Debug 지원 — `launch.json` 없이 `dotori run` 실행 + 디버거 연결
+- [x] 상태 표시줄: 현재 타겟 / Configuration 표시 및 전환
 - [ ] 프로젝트 트리 뷰 — DAG 의존성 시각화
 
 #### Zed 확장 (`dotori-zed`)
 
-- [ ] `.dotori` 문법 하이라이팅 (Tree-sitter grammar)
-- [ ] 자동 완성 + 오류 진단 (LSP 재사용)
-- [ ] 빌드 / 실행 Task 통합
+- [x] `.dotori` 문법 하이라이팅 (Tree-sitter grammar)
+- [x] 자동 완성 + 오류 진단 (LSP 재사용 — clangd)
+- [x] 빌드 / 실행 Task 통합
 
 #### CLion 플러그인 (`dotori-clion`)
 
-- [ ] 프로젝트 모델 임포트 — `.dotori` 기반 CMakeLists 없이 인덱싱
-- [ ] 빌드 / 실행 / 디버그 Run Configuration
-- [ ] `.dotori` 파일 편집기 지원 (하이라이팅, 완성)
+- [x] 프로젝트 모델 임포트 — `.dotori` 기반 CMakeLists 없이 인덱싱
+- [x] 빌드 / 실행 / 디버그 Run Configuration
+- [x] `.dotori` 파일 편집기 지원 (하이라이팅, 완성)
 
 ---
 
