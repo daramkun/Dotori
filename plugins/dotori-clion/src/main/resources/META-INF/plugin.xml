@@ -59,6 +59,22 @@
             language="Dotori"
             implementationClass="com.dotori.clion.lang.DotoriCommenter"/>
 
+        <!-- ── Annotator (unknown keywords, condition warnings) ─────── -->
+        <annotator
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriAnnotator"/>
+
+        <!-- ── Code folding ─────────────────────────────────────────── -->
+        <lang.foldingBuilder
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriFoldingBuilder"/>
+
+        <!-- ── Smart (context-aware) completions ────────────────────── -->
+        <completion.contributor
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriSmartCompletionContributor"
+            order="first, before dotoriKeyword"/>
+
         <!-- ── Project open processor ───────────────────────────────── -->
         <projectOpenProcessor
             id="dotori"
@@ -71,6 +87,10 @@
 
         <runConfigurationProducer
             implementation="com.dotori.clion.run.DotoriRunConfigurationProducer"/>
+
+        <!-- ── Debug runner ─────────────────────────────────────────── -->
+        <programRunner
+            implementation="com.dotori.clion.run.DotoriDebugRunner"/>
 
         <!-- ── Project settings service ─────────────────────────────── -->
         <projectService

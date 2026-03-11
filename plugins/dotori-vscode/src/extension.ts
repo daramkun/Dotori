@@ -3,6 +3,7 @@ import { DotoriCli } from './cli';
 import { DotoriTaskProvider } from './taskProvider';
 import { DotoriStatusBar } from './statusBar';
 import { DotoriDebugConfigurationProvider } from './debugConfigProvider';
+import { DotoriFileWatcher } from './dotoriFileWatcher';
 
 // ── Known build targets for quick-pick ───────────────────────────────────────
 const KNOWN_TARGETS = [
@@ -47,6 +48,9 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('dotori.selectTarget', selectTarget),
         vscode.commands.registerCommand('dotori.selectConfig', selectConfig),
     );
+
+    // ── .dotori file watcher → auto-regenerate compile_commands.json ─────
+    new DotoriFileWatcher(context);
 
     // ── Debug configuration provider ─────────────────────────────────────
     const debugProvider = new DotoriDebugConfigurationProvider();
