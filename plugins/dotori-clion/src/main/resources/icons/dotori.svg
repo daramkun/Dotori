@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Acorn/dotori shape -->
+  <ellipse cx="8" cy="9.5" rx="5" ry="5.5" fill="#8B4513"/>
+  <rect x="3" y="3" width="10" height="4" rx="2" fill="#5D3A1A"/>
+  <line x1="8" y1="1" x2="8" y2="3" stroke="#5D3A1A" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

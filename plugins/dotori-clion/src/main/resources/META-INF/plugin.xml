@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<idea-plugin>
+    <id>com.dotori.clion</id>
+    <name>Dotori Build System</name>
+    <vendor url="https://github.com/dotori-build/dotori">dotori</vendor>
+    <description><![CDATA[
+        Native integration for the <b>dotori</b> C++ build system in CLion.<br/><br/>
+        Features:
+        <ul>
+            <li><b>Project opening</b>: Automatically detects and opens dotori projects</li>
+            <li><b>.dotori file support</b>: Syntax highlighting and keyword completion</li>
+            <li><b>Build/Run/Debug</b>: Run configurations that invoke dotori CLI</li>
+            <li><b>compile_commands.json</b>: Automatic generation for clangd IntelliSense</li>
+        </ul>
+    ]]></description>
+
+    <idea-version since-build="251" until-build="999.*"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.cidr.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+
+        <!-- ── .dotori file type ─────────────────────────────────────── -->
+        <fileType
+            name="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriFileType"
+            extensions="dotori"
+            language="Dotori"
+            fieldName="INSTANCE"/>
+
+        <!-- ── Parser definition ───────────────────────────────────── -->
+        <lang.parserDefinition
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriParserDefinition"/>
+
+        <!-- ── Syntax highlighting ──────────────────────────────────── -->
+        <lang.syntaxHighlighter
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriSyntaxHighlighter"/>
+
+        <!-- ── Color settings page ──────────────────────────────────── -->
+        <colorSettingsPage
+            implementation="com.dotori.clion.lang.DotoriColorSettingsPage"/>
+
+        <!-- ── Code completion ──────────────────────────────────────── -->
+        <completion.contributor
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriCompletionContributor"
+            order="first"/>
+
+        <!-- ── Brace matching ───────────────────────────────────────── -->
+        <lang.braceMatcher
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriBraceMatcher"/>
+
+        <!-- ── Commenter ────────────────────────────────────────────── -->
+        <lang.commenter
+            language="Dotori"
+            implementationClass="com.dotori.clion.lang.DotoriCommenter"/>
+
+        <!-- ── Project open processor ───────────────────────────────── -->
+        <projectOpenProcessor
+            id="dotori"
+            implementation="com.dotori.clion.project.DotoriProjectOpenProcessor"
+            order="first"/>
+
+        <!-- ── Run configuration type ───────────────────────────────── -->
+        <configurationType
+            implementation="com.dotori.clion.run.DotoriRunConfigurationType"/>
+
+        <runConfigurationProducer
+            implementation="com.dotori.clion.run.DotoriRunConfigurationProducer"/>
+
+        <!-- ── Project settings service ─────────────────────────────── -->
+        <projectService
+            serviceImplementation="com.dotori.clion.project.DotoriProjectSettings"/>
+
+        <!-- ── Notification group ───────────────────────────────────── -->
+        <notificationGroup
+            id="Dotori"
+            displayType="BALLOON"
+            isLogByDefault="true"/>
+
+    </extensions>
+
+    <actions>
+        <action
+            id="Dotori.RefreshCompileCommands"
+            class="com.dotori.clion.actions.DotoriRefreshAction"
+            text="Refresh dotori compile_commands.json"
+            description="Re-run dotori export compile-commands for clangd IntelliSense">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+
+</idea-plugin>
