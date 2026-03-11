@@ -1,0 +1,192 @@
+{
+  "name": "dotori-build",
+  "displayName": "Dotori Build System",
+  "description": "Native integration for the dotori C++ build system",
+  "version": "1.0.0",
+  "publisher": "dotori",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dotori-build/dotori"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "build",
+    "c++",
+    "cpp",
+    "dotori",
+    "build system"
+  ],
+  "icon": "images/dotori.png",
+  "activationEvents": [
+    "workspaceContains:**/.dotori"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dotori",
+        "aliases": [
+          "Dotori",
+          "dotori"
+        ],
+        "extensions": [
+          ".dotori"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/dotori.png",
+          "dark": "./images/dotori.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dotori",
+        "scopeName": "source.dotori",
+        "path": "./syntaxes/dotori.tmLanguage.json"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "dotori",
+        "required": [
+          "task"
+        ],
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "Dotori task (build, run, clean, test, export-compile-commands)"
+          },
+          "project": {
+            "type": "string",
+            "description": "Path to .dotori file or directory"
+          },
+          "release": {
+            "type": "boolean",
+            "default": false,
+            "description": "Build in Release configuration"
+          },
+          "target": {
+            "type": "string",
+            "description": "Build target (e.g. macos-arm64, linux-x64)"
+          },
+          "args": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Extra arguments to pass to dotori"
+          }
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "dotori.build",
+        "title": "Build",
+        "category": "Dotori",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "dotori.buildRelease",
+        "title": "Build (Release)",
+        "category": "Dotori"
+      },
+      {
+        "command": "dotori.run",
+        "title": "Run",
+        "category": "Dotori",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dotori.clean",
+        "title": "Clean",
+        "category": "Dotori"
+      },
+      {
+        "command": "dotori.exportCompileCommands",
+        "title": "Export compile_commands.json",
+        "category": "Dotori"
+      },
+      {
+        "command": "dotori.selectTarget",
+        "title": "Select Build Target",
+        "category": "Dotori"
+      },
+      {
+        "command": "dotori.selectConfig",
+        "title": "Select Build Configuration (Debug/Release)",
+        "category": "Dotori"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "dotori.build",                 "when": "dotori.isWorkspace" },
+        { "command": "dotori.buildRelease",           "when": "dotori.isWorkspace" },
+        { "command": "dotori.run",                   "when": "dotori.isWorkspace" },
+        { "command": "dotori.clean",                 "when": "dotori.isWorkspace" },
+        { "command": "dotori.exportCompileCommands", "when": "dotori.isWorkspace" },
+        { "command": "dotori.selectTarget",          "when": "dotori.isWorkspace" },
+        { "command": "dotori.selectConfig",          "when": "dotori.isWorkspace" }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Dotori",
+      "properties": {
+        "dotori.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to dotori executable (leave empty to auto-detect from PATH)"
+        },
+        "dotori.defaultTarget": {
+          "type": "string",
+          "default": "",
+          "description": "Default build target (e.g. macos-arm64). Leave empty for auto-detection."
+        },
+        "dotori.defaultConfiguration": {
+          "type": "string",
+          "default": "debug",
+          "enum": [
+            "debug",
+            "release"
+          ],
+          "enumDescriptions": [
+            "Debug build (no optimization, full debug info)",
+            "Release build (optimized, no debug info)"
+          ],
+          "description": "Default build configuration"
+        },
+        "dotori.autoExportCompileCommands": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically run 'dotori export compile-commands' on project open and after build"
+        },
+        "dotori.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show dotori status bar item"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.6.0"
+  }
+}
