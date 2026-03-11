@@ -9,5 +9,6 @@ rootCommand.Add(TestCommandFactory.Create());
 rootCommand.Add(CleanCommandFactory.Create());
 rootCommand.Add(PackageCommandFactory.Create());
 rootCommand.Add(InfoCommandFactory.Create());
+rootCommand.Add(ExportCommandFactory.Create());
 
 return await rootCommand.Parse(args).InvokeAsync();
