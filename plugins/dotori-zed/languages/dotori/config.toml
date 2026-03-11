@@ -1,0 +1,9 @@
+name          = "Dotori"
+grammar       = "dotori"
+path_suffixes = ["dotori"]
+
+# .dotori uses (* ... *) block comments only, no line comments
+block_comment_characters = ["(*", "*)"]
+
+tab_size   = 4
+hard_tabs  = false

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Dotori Debug Adapter Configuration",
+  "description": "Debug configuration for dotori C++ projects",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "dotori",
+      "description": "Debug adapter type"
+    },
+    "request": {
+      "type": "string",
+      "enum": ["launch"],
+      "description": "Debug request type"
+    },
+    "project": {
+      "type": "string",
+      "description": "Path to .dotori file or directory. Defaults to workspace root.",
+      "default": "${ZED_WORKTREE_ROOT}/.dotori"
+    },
+    "target": {
+      "type": "string",
+      "description": "Build target (e.g. macos-arm64, linux-x64). Leave empty for auto-detection.",
+      "default": ""
+    },
+    "configuration": {
+      "type": "string",
+      "enum": ["debug", "release"],
+      "description": "Build configuration.",
+      "default": "debug"
+    },
+    "preLaunchBuild": {
+      "type": "boolean",
+      "description": "Run 'dotori build' before launching the debugger.",
+      "default": true
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Command-line arguments for the debuggee.",
+      "default": []
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Environment variables for the debuggee.",
+      "default": {}
+    },
+    "stopAtEntry": {
+      "type": "boolean",
+      "description": "Break at program entry point.",
+      "default": false
+    }
+  },
+  "required": ["type", "request"]
+}

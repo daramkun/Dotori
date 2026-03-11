@@ -1,0 +1,22 @@
+id          = "dotori"
+name        = "Dotori Build System"
+version     = "1.0.0"
+schema_version = 1
+authors     = ["dotori contributors"]
+description = "Native integration for the dotori C++ build system: .dotori syntax, clangd LSP, build/run tasks, and debug support."
+repository  = "https://github.com/dotori-build/dotori"
+
+[languages.dotori]
+name          = "Dotori"
+grammar       = "dotori"
+path_suffixes = ["dotori"]
+
+[grammars.dotori]
+repository = "https://github.com/dotori-build/tree-sitter-dotori"
+rev        = "main"
+
+[language_servers.clangd]
+name      = "clangd"
+languages = ["C", "C++", "Objective-C", "Objective-C++"]
+
+[debug_adapters.dotori]
