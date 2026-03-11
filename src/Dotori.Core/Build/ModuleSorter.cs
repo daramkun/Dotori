@@ -128,7 +128,7 @@ public static class ModuleSorter
         var bmiPaths = new Dictionary<string, string>(StringComparer.Ordinal);
         var jobs     = new List<CompileJob>();
 
-        var bmiDir = Path.Combine(Path.GetDirectoryName(objDir) ?? objDir, "..", "bmi");
+        var bmiDir = Path.Combine(objDir, "bmi");
         Directory.CreateDirectory(bmiDir);
 
         foreach (var dep in sortedDeps)
