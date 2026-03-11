@@ -135,6 +135,89 @@
         { "command": "dotori.selectConfig",          "when": "dotori.isWorkspace" }
       ]
     },
+    "debuggers": [
+      {
+        "type": "dotori",
+        "label": "Dotori C++ Debug",
+        "languages": ["cpp", "c"],
+        "configurationAttributes": {
+          "launch": {
+            "required": [],
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Path to .dotori file or directory containing it.",
+                "default": "${workspaceFolder}/.dotori"
+              },
+              "target": {
+                "type": "string",
+                "description": "Build target (e.g. macos-arm64, linux-x64). Leave empty to use workspace default.",
+                "default": ""
+              },
+              "configuration": {
+                "type": "string",
+                "enum": ["debug", "release"],
+                "description": "Build configuration.",
+                "default": "debug"
+              },
+              "preLaunchBuild": {
+                "type": "boolean",
+                "description": "Run 'dotori build' before launching the debugger.",
+                "default": true
+              },
+              "args": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Command-line arguments passed to the debuggee.",
+                "default": []
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variables set for the debuggee.",
+                "default": {}
+              },
+              "stopAtEntry": {
+                "type": "boolean",
+                "description": "Break at program entry point (main).",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "dotori",
+            "request": "launch",
+            "name": "Debug dotori project",
+            "project": "${workspaceFolder}/.dotori",
+            "target": "",
+            "configuration": "debug",
+            "preLaunchBuild": true,
+            "stopAtEntry": false,
+            "args": [],
+            "env": {}
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Dotori: Launch",
+            "description": "Build and debug a dotori C++ project",
+            "body": {
+              "type": "dotori",
+              "request": "launch",
+              "name": "Debug ${1:MyApp}",
+              "project": "^\"\\${workspaceFolder}/.dotori\"",
+              "target": "",
+              "configuration": "debug",
+              "preLaunchBuild": true,
+              "stopAtEntry": false,
+              "args": [],
+              "env": {}
+            }
+          }
+        ]
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Dotori",
