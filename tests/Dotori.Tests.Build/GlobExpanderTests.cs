@@ -69,7 +69,7 @@ public sealed class GlobExpanderTests
         Create("src/c.h");
 
         var result = GlobExpander.Expand(_tempDir, ["src/*.cpp"], []);
-        Assert.AreEqual(2, result.Count);
+        Assert.HasCount(2, result);
     }
 
     [TestMethod]
@@ -80,7 +80,7 @@ public sealed class GlobExpanderTests
         Create("src/sub/deep/c.cpp");
 
         var result = GlobExpander.Expand(_tempDir, ["src/**/*.cpp"], []);
-        Assert.AreEqual(3, result.Count);
+        Assert.HasCount(3, result);
     }
 
     [TestMethod]
@@ -90,15 +90,15 @@ public sealed class GlobExpanderTests
         Create("src/b.cpp");
 
         var result = GlobExpander.Expand(_tempDir, ["src/*.cpp"], ["src/b.cpp"]);
-        Assert.AreEqual(1, result.Count);
-        StringAssert.EndsWith(result[0], "a.cpp");
+        Assert.HasCount(1, result);
+        Assert.EndsWith("a.cpp", result[0]);
     }
 
     [TestMethod]
     public void Expand_NonexistentPattern_ReturnsEmpty()
     {
         var result = GlobExpander.Expand(_tempDir, ["nonexistent/**/*.cpp"], []);
-        Assert.AreEqual(0, result.Count);
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
@@ -107,6 +107,6 @@ public sealed class GlobExpanderTests
         Create("src/a.cpp");
         // Include same pattern twice
         var result = GlobExpander.Expand(_tempDir, ["src/*.cpp", "src/*.cpp"], []);
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
     }
 }

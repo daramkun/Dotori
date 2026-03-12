@@ -41,7 +41,7 @@ public sealed class ModuleScannerTests
         var dep = ModuleScanner.ScanByText(file);
 
         Assert.AreEqual("MyLib", dep.Provides);
-        Assert.AreEqual(1, dep.Requires.Count);
+        Assert.HasCount(1, dep.Requires);
         Assert.AreEqual("std.core", dep.Requires[0]);
     }
 
@@ -56,7 +56,7 @@ public sealed class ModuleScannerTests
         var dep = ModuleScanner.ScanByText(file);
 
         Assert.IsNull(dep.Provides);
-        Assert.AreEqual(2, dep.Requires.Count);
+        Assert.HasCount(2, dep.Requires);
         Assert.IsTrue(dep.Requires.Contains("MyLib"));
         Assert.IsTrue(dep.Requires.Contains("fmt"));
     }
@@ -71,7 +71,7 @@ public sealed class ModuleScannerTests
 
         var dep = ModuleScanner.ScanByText(file);
 
-        Assert.AreEqual(1, dep.Requires.Count);
+        Assert.HasCount(1, dep.Requires);
         Assert.AreEqual("MyLib", dep.Requires[0]);
     }
 
@@ -86,7 +86,7 @@ public sealed class ModuleScannerTests
         var dep = ModuleScanner.ScanByText(file);
 
         // ":OtherPart" should be skipped (starts with ':')
-        Assert.AreEqual(0, dep.Requires.Count);
+        Assert.IsEmpty(dep.Requires);
     }
 
     [TestMethod]
@@ -97,7 +97,7 @@ public sealed class ModuleScannerTests
         var dep = ModuleScanner.ScanByText(file);
 
         Assert.IsNull(dep.Provides);
-        Assert.AreEqual(0, dep.Requires.Count);
+        Assert.IsEmpty(dep.Requires);
     }
 
     [TestMethod]
@@ -106,7 +106,7 @@ public sealed class ModuleScannerTests
         var dep = ModuleScanner.ScanByText(Path.Combine(_tempDir, "nonexistent.cppm"));
 
         Assert.IsNull(dep.Provides);
-        Assert.AreEqual(0, dep.Requires.Count);
+        Assert.IsEmpty(dep.Requires);
     }
 
     [TestMethod]
@@ -149,7 +149,7 @@ public sealed class ModuleScannerTests
 
         Assert.IsNotNull(dep);
         Assert.AreEqual("MyLib", dep!.Provides);
-        Assert.AreEqual(2, dep.Requires.Count);
+        Assert.HasCount(2, dep.Requires);
         Assert.IsTrue(dep.Requires.Contains("std.core"));
         Assert.IsTrue(dep.Requires.Contains("utils"));
     }
@@ -173,7 +173,7 @@ public sealed class ModuleScannerTests
 
         Assert.IsNotNull(dep);
         Assert.IsNull(dep!.Provides);
-        Assert.AreEqual(1, dep.Requires.Count);
+        Assert.HasCount(1, dep.Requires);
     }
 
     [TestMethod]

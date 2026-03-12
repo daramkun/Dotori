@@ -69,13 +69,13 @@ public sealed class LockManagerTests
         var parsed  = LockManager.Parse(text);
 
         Assert.AreEqual(1, parsed.LockVersion);
-        Assert.AreEqual(1, parsed.Packages.Count);
+        Assert.HasCount(1, parsed.Packages);
 
         var pkg = parsed.Packages[0];
         Assert.AreEqual("fmt",       pkg.Name);
         Assert.AreEqual("10.2.0",    pkg.Version);
         Assert.AreEqual("sha256:abcdef", pkg.Hash);
-        Assert.AreEqual(1,           pkg.Deps.Count);
+        Assert.HasCount(1, pkg.Deps);
         Assert.AreEqual("some-dep@1.0", pkg.Deps[0]);
     }
 
@@ -97,10 +97,10 @@ source  = ""git+https://github.com/gabime/spdlog#v1.13.0""
 deps    = [""fmt@10.2.0""]
 ";
         var parsed = LockManager.Parse(text);
-        Assert.AreEqual(2, parsed.Packages.Count);
+        Assert.HasCount(2, parsed.Packages);
         Assert.AreEqual("fmt",    parsed.Packages[0].Name);
         Assert.AreEqual("spdlog", parsed.Packages[1].Name);
-        Assert.AreEqual(1, parsed.Packages[1].Deps.Count);
+        Assert.HasCount(1, parsed.Packages[1].Deps);
     }
 
     // ─── File I/O ────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ deps    = [""fmt@10.2.0""]
             Assert.IsTrue(File.Exists(Path.Combine(tempDir, ".dotori.lock")));
 
             var loaded = LockManager.Load(tempDir);
-            Assert.AreEqual(1, loaded.Packages.Count);
+            Assert.HasCount(1, loaded.Packages);
             Assert.AreEqual("mylib", loaded.Packages[0].Name);
         }
         finally
@@ -141,7 +141,7 @@ deps    = [""fmt@10.2.0""]
         try
         {
             var loaded = LockManager.Load(tempDir);
-            Assert.AreEqual(0, loaded.Packages.Count);
+            Assert.IsEmpty(loaded.Packages);
         }
         finally
         {

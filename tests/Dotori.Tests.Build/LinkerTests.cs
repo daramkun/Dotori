@@ -50,9 +50,9 @@ public sealed class LldLinkerTests
         var flags    = LldLinker.LinkFlags(model, toolchain, "/out/app");
 
         var flagStr = string.Join(" ", flags);
-        Assert.IsTrue(flagStr.Contains("--target=x86_64-unknown-linux-gnu"), "Should contain target triple");
-        Assert.IsTrue(flagStr.Contains("-o \"/out/app\""), "Should contain output file");
-        Assert.IsTrue(flagStr.Contains("-fuse-ld=lld"), "Should use lld");
+        Assert.Contains("--target=x86_64-unknown-linux-gnu", flagStr, "Should contain target triple");
+        Assert.Contains("-o \"/out/app\"", flagStr, "Should contain output file");
+        Assert.Contains("-fuse-ld=lld", flagStr, "Should use lld");
     }
 
     [TestMethod]
@@ -137,7 +137,7 @@ public sealed class LldLinkerTests
         var job      = LldLinker.MakeLinkJob(new[] { "a.o", "b.o" }, "/out/app", flags);
 
         Assert.AreEqual("/out/app", job.OutputFile);
-        Assert.AreEqual(2, job.InputFiles.Length);
+        Assert.HasCount(2, job.InputFiles);
         Assert.IsTrue(job.Args.Any(a => a.Contains("a.o")));
     }
 }
@@ -211,9 +211,9 @@ public sealed class AppleLinkerTests
         var flags    = AppleLinker.LinkFlags(model, toolchain, "/out/MyApp");
 
         var flagStr = string.Join(" ", flags);
-        Assert.IsTrue(flagStr.Contains("--target=arm64-apple-macosx14.0"), "Should contain target triple");
-        Assert.IsTrue(flagStr.Contains("-o \"/out/MyApp\""), "Should contain output");
-        Assert.IsTrue(flagStr.Contains("-stdlib=libc++"), "Apple always uses libc++");
+        Assert.Contains("--target=arm64-apple-macosx14.0", flagStr, "Should contain target triple");
+        Assert.Contains("-o \"/out/MyApp\"", flagStr, "Should contain output");
+        Assert.Contains("-stdlib=libc++", flagStr, "Apple always uses libc++");
     }
 
     [TestMethod]
@@ -288,6 +288,6 @@ public sealed class AppleLinkerTests
         var job      = AppleLinker.MakeLinkJob(new[] { "a.o", "b.o" }, "/out/app", flags);
 
         Assert.AreEqual("/out/app", job.OutputFile);
-        Assert.AreEqual(2, job.InputFiles.Length);
+        Assert.HasCount(2, job.InputFiles);
     }
 }

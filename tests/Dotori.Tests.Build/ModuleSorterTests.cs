@@ -20,7 +20,7 @@ public sealed class ModuleSorterTests
 
         var sorted = ModuleSorter.Sort(deps);
 
-        Assert.AreEqual(3, sorted.Count);
+        Assert.HasCount(3, sorted);
     }
 
     [TestMethod]
@@ -36,13 +36,13 @@ public sealed class ModuleSorterTests
 
         var sorted = ModuleSorter.Sort(deps);
 
-        Assert.AreEqual(3, sorted.Count);
+        Assert.HasCount(3, sorted);
         int idxA = IndexOf(sorted, "A");
         int idxB = IndexOf(sorted, "B");
         int idxC = IndexOf(sorted, "C");
 
-        Assert.IsTrue(idxC < idxB, "C must be before B");
-        Assert.IsTrue(idxB < idxA, "B must be before A");
+        Assert.IsLessThan(idxB, idxC, "C must be before B");
+        Assert.IsLessThan(idxA, idxB, "B must be before A");
     }
 
     [TestMethod]
@@ -59,16 +59,16 @@ public sealed class ModuleSorterTests
 
         var sorted = ModuleSorter.Sort(deps);
 
-        Assert.AreEqual(4, sorted.Count);
+        Assert.HasCount(4, sorted);
         int idxA = IndexOf(sorted, "A");
         int idxB = IndexOf(sorted, "B");
         int idxC = IndexOf(sorted, "C");
         int idxD = IndexOf(sorted, "D");
 
-        Assert.IsTrue(idxD < idxB, "D must be before B");
-        Assert.IsTrue(idxD < idxC, "D must be before C");
-        Assert.IsTrue(idxB < idxA, "B must be before A");
-        Assert.IsTrue(idxC < idxA, "C must be before A");
+        Assert.IsLessThan(idxB, idxD, "D must be before B");
+        Assert.IsLessThan(idxC, idxD, "D must be before C");
+        Assert.IsLessThan(idxA, idxB, "B must be before A");
+        Assert.IsLessThan(idxA, idxC, "C must be before A");
     }
 
     [TestMethod]
@@ -82,7 +82,7 @@ public sealed class ModuleSorterTests
 
         var sorted = ModuleSorter.Sort(deps);
 
-        Assert.AreEqual(1, sorted.Count);
+        Assert.HasCount(1, sorted);
         Assert.AreEqual("A", sorted[0].Provides);
     }
 
@@ -104,7 +104,7 @@ public sealed class ModuleSorterTests
     public void Sort_EmptyList_ReturnsEmpty()
     {
         var sorted = ModuleSorter.Sort(Array.Empty<ModuleScanner.ModuleDep>());
-        Assert.AreEqual(0, sorted.Count);
+        Assert.IsEmpty(sorted);
     }
 
     // ─── BuildModuleJobs ──────────────────────────────────────────────────────
@@ -122,13 +122,13 @@ public sealed class ModuleSorterTests
                 deps, objDir, CompilerKind.Clang,
                 new[] { "-std=c++23", "-c" });
 
-            Assert.AreEqual(1, jobs.Count);
+            Assert.HasCount(1, jobs);
             var args = string.Join(" ", jobs[0].Args);
 
-            Assert.IsTrue(args.Contains("--precompile"), "Should contain --precompile");
-            Assert.IsTrue(args.Contains("-x c++-module"), "Should contain -x c++-module");
-            Assert.IsFalse(args.Contains("-c"), "Should not contain -c (removed)");
-            Assert.IsTrue(jobs[0].OutputFile.EndsWith(".pcm"), "Output should be .pcm");
+            Assert.Contains("--precompile", args, "Should contain --precompile");
+            Assert.Contains("-x c++-module", args, "Should contain -x c++-module");
+            Assert.DoesNotContain("-c", args, "Should not contain -c (removed)");
+            Assert.EndsWith(".pcm", jobs[0].OutputFile, "Output should be .pcm");
         }
         finally
         {
@@ -149,13 +149,13 @@ public sealed class ModuleSorterTests
                 deps, objDir, CompilerKind.Msvc,
                 new[] { "/std:c++latest", "/c" });
 
-            Assert.AreEqual(1, jobs.Count);
+            Assert.HasCount(1, jobs);
             var args = string.Join(" ", jobs[0].Args);
 
-            Assert.IsTrue(args.Contains("/interface"), "Should contain /interface");
-            Assert.IsTrue(args.Contains("/TP"), "Should contain /TP");
-            Assert.IsFalse(args.Contains("/c"), "Should not contain /c (removed)");
-            Assert.IsTrue(jobs[0].OutputFile.EndsWith(".ifc"), "Output should be .ifc");
+            Assert.Contains("/interface", args, "Should contain /interface");
+            Assert.Contains("/TP", args, "Should contain /TP");
+            Assert.DoesNotContain("/c", args, "Should not contain /c (removed)");
+            Assert.EndsWith(".ifc", jobs[0].OutputFile, "Output should be .ifc");
         }
         finally
         {
@@ -182,11 +182,11 @@ public sealed class ModuleSorterTests
                 sortedDeps, objDir, CompilerKind.Clang,
                 new[] { "-std=c++23" });
 
-            Assert.AreEqual(2, jobs.Count);
+            Assert.HasCount(2, jobs);
 
             // B's job should reference A's PCM
             var bArgs = string.Join(" ", jobs[1].Args);
-            Assert.IsTrue(bArgs.Contains("-fmodule-file=A="), "B's job should reference A's PCM");
+            Assert.Contains("-fmodule-file=A=", bArgs, "B's job should reference A's PCM");
         }
         finally
         {
@@ -205,10 +205,10 @@ public sealed class ModuleSorterTests
         };
 
         var flags = ModuleSorter.BuildImportFlags(
-            new[] { "MyLib", "std.core" }, bmiPaths, CompilerKind.Clang);
+            ["MyLib", "std.core"], bmiPaths, CompilerKind.Clang);
 
-        Assert.AreEqual(1, flags.Count); // "std.core" not in bmiPaths
-        Assert.IsTrue(flags[0].StartsWith("-fmodule-file=MyLib="));
+        Assert.HasCount(1, flags); // "std.core" not in bmiPaths
+        Assert.StartsWith("-fmodule-file=MyLib=", flags[0]);
     }
 
     [TestMethod]
@@ -220,10 +220,10 @@ public sealed class ModuleSorterTests
         };
 
         var flags = ModuleSorter.BuildImportFlags(
-            new[] { "MyLib" }, bmiPaths, CompilerKind.Msvc);
+            ["MyLib"], bmiPaths, CompilerKind.Msvc);
 
-        Assert.AreEqual(1, flags.Count);
-        Assert.IsTrue(flags[0].StartsWith("/reference MyLib="));
+        Assert.HasCount(1, flags);
+        Assert.StartsWith("/reference MyLib=", flags[0]);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ public sealed class ModuleSorterTests
 
     private static int IndexOf(IReadOnlyList<ModuleScanner.ModuleDep> sorted, string provides)
     {
-        for (int i = 0; i < sorted.Count; i++)
+        for (var i = 0; i < sorted.Count; i++)
             if (sorted[i].Provides == provides) return i;
         return -1;
     }

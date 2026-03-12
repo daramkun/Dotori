@@ -27,8 +27,8 @@ public sealed class ProjectFlattenerTests
             Libc = "glibc", Stdlib = "libstdc++",
         };
         var model = Flatten("lib-with-package.dotori", ctx);
-        Assert.IsTrue(model.Defines.Contains("PLATFORM_LINUX"));
-        Assert.IsTrue(model.Links.Contains("pthread"));
+        Assert.Contains("PLATFORM_LINUX", model.Defines);
+        Assert.Contains("pthread", model.Links);
     }
 
     [TestMethod]
@@ -40,9 +40,9 @@ public sealed class ProjectFlattenerTests
             Compiler = "msvc",    Runtime = "static",
         };
         var model = Flatten("lib-with-package.dotori", ctx);
-        Assert.IsTrue(model.Defines.Contains("PLATFORM_WINDOWS"));
-        Assert.IsTrue(model.Links.Contains("kernel32"));
-        Assert.IsFalse(model.Defines.Contains("PLATFORM_LINUX"));
+        Assert.Contains("PLATFORM_WINDOWS", model.Defines);
+        Assert.Contains("kernel32", model.Links);
+        Assert.DoesNotContain("PLATFORM_LINUX", model.Defines);
     }
 
     [TestMethod]
@@ -55,11 +55,11 @@ public sealed class ProjectFlattenerTests
         };
         var model = Flatten("complex-conditions.dotori", ctx);
         // [windows] block applies: PLATFORM_WINDOWS
-        Assert.IsTrue(model.Defines.Contains("PLATFORM_WINDOWS"));
+        Assert.Contains("PLATFORM_WINDOWS", model.Defines);
         // [windows.release] (specificity 2) overrides optimize
         Assert.AreEqual(OptimizeLevel.Full, model.Optimize);
         // [windows.release] adds WIN_RELEASE_ONLY define
-        Assert.IsTrue(model.Defines.Contains("WIN_RELEASE_ONLY"));
+        Assert.Contains("WIN_RELEASE_ONLY", model.Defines);
     }
 
     [TestMethod]
@@ -71,7 +71,7 @@ public sealed class ProjectFlattenerTests
             Compiler = "clang", Runtime = "static",
         };
         var model = Flatten("simple-app.dotori", ctx);
-        Assert.IsTrue(model.Defines.Contains("DEBUG"));
+        Assert.Contains("DEBUG", model.Defines);
         Assert.AreEqual(OptimizeLevel.None, model.Optimize);
         Assert.AreEqual(DebugInfoLevel.Full, model.DebugInfo);
     }
@@ -85,8 +85,8 @@ public sealed class ProjectFlattenerTests
             Compiler = "clang", Runtime = "static",
         };
         var model = Flatten("simple-app.dotori", ctx);
-        Assert.IsTrue(model.Defines.Contains("NDEBUG"));
-        Assert.IsFalse(model.Defines.Contains("DEBUG"));
+        Assert.Contains("NDEBUG", model.Defines);
+        Assert.DoesNotContain("DEBUG", model.Defines);
         Assert.AreEqual(OptimizeLevel.Speed, model.Optimize);
         Assert.IsTrue(model.Lto);
     }
@@ -101,8 +101,8 @@ public sealed class ProjectFlattenerTests
             WasmBackend = "emscripten",
         };
         var model = Flatten("complex-conditions.dotori", ctx);
-        Assert.IsTrue(model.EmscriptenFlags.Contains("-sUSE_SDL=2"));
-        Assert.IsTrue(model.EmscriptenFlags.Contains("-sALLOW_MEMORY_GROWTH"));
+        Assert.Contains("-sUSE_SDL=2", model.EmscriptenFlags);
+        Assert.Contains("-sALLOW_MEMORY_GROWTH", model.EmscriptenFlags);
     }
 
     [TestMethod]
@@ -114,8 +114,8 @@ public sealed class ProjectFlattenerTests
             Compiler = "clang", Runtime = "static",
         };
         var model = Flatten("lib-with-package.dotori", ctx);
-        Assert.IsFalse(model.Defines.Contains("PLATFORM_LINUX"));
-        Assert.IsFalse(model.Defines.Contains("PLATFORM_WINDOWS"));
+        Assert.DoesNotContain("PLATFORM_LINUX", model.Defines);
+        Assert.DoesNotContain("PLATFORM_WINDOWS", model.Defines);
     }
 
     // ─── RuntimeEnforcer ────────────────────────────────────────────────────
