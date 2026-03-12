@@ -75,10 +75,10 @@ jobs:
           SDKROOT: ${{ matrix.os == 'macos-latest' && '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk' || '' }}
 
       - name: Publish dotori-server
-        run: dotnet publish src/Dotori.BuildServer/Dotori.BuildServer.csproj -c Release -r ${{ matrix.rid }} --self-contained
+        run: dotnet publish src/Dotori.BuildServer/Dotori.BuildServer.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:DebugType=none -p:DebugSymbols=false
 
       - name: Publish dotori-worker
-        run: dotnet publish src/Dotori.Worker/Dotori.Worker.csproj -c Release -r ${{ matrix.rid }} --self-contained
+        run: dotnet publish src/Dotori.Worker/Dotori.Worker.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:DebugType=none -p:DebugSymbols=false
 
       - name: Collect artifacts
         shell: bash
