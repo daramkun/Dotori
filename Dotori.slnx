@@ -2,6 +2,7 @@
   <Folder Name="/Dotori/">
     <Project Path="src/Dotori.Cli/Dotori.Cli.csproj" />
     <Project Path="src/Dotori.Core/Dotori.Core.csproj" />
+    <Project Path="src/Dotori.Grpc/Dotori.Grpc.csproj" />
     <Project Path="src/Dotori.PackageManager/Dotori.PackageManager.csproj" />
     <Project Path="src/Dotori.BuildServer/Dotori.BuildServer.csproj" />
     <Project Path="src/Dotori.Worker/Dotori.Worker.csproj" />
