@@ -14,7 +14,7 @@ public sealed class ProjectDagBuilderTests
     public void Build_SingleProject_CreatesOneNode()
     {
         var nodes = ProjectDagBuilder.Build([FixturePath("dag/core/.dotori")]);
-        Assert.AreEqual(1, nodes.Count);
+        Assert.HasCount(1, nodes);
         Assert.IsTrue(nodes.Values.Any(n => n.ProjectName == "Core"));
     }
 
@@ -24,9 +24,9 @@ public sealed class ProjectDagBuilderTests
         // app → lib → core
         var nodes = ProjectDagBuilder.Build([FixturePath("dag/app/.dotori")]);
         var names = nodes.Values.Select(n => n.ProjectName).ToHashSet();
-        Assert.IsTrue(names.Contains("App"));
-        Assert.IsTrue(names.Contains("Lib"));
-        Assert.IsTrue(names.Contains("Core"));
+        Assert.Contains("App", names);
+        Assert.Contains("Lib", names);
+        Assert.Contains("Core", names);
     }
 
     [TestMethod]
@@ -38,7 +38,7 @@ public sealed class ProjectDagBuilderTests
             FixturePath("dag/tools/.dotori"),
         ]);
         // app, lib, core, tools — core deduplicated
-        Assert.AreEqual(4, nodes.Count);
+        Assert.HasCount(4, nodes);
     }
 
     [TestMethod]
@@ -46,7 +46,7 @@ public sealed class ProjectDagBuilderTests
     {
         var nodes = ProjectDagBuilder.Build([FixturePath("dag/lib/.dotori")]);
         var lib   = nodes.Values.Single(n => n.ProjectName == "Lib");
-        Assert.AreEqual(1, lib.Dependencies.Count);
+        Assert.HasCount(1, lib.Dependencies);
         Assert.AreEqual("Core", lib.Dependencies[0].ProjectName);
     }
 
@@ -82,7 +82,7 @@ public sealed class ProjectDagBuilderTests
 
         var coreIdx = names.IndexOf("Core");
         var libIdx  = names.IndexOf("Lib");
-        Assert.IsTrue(coreIdx < libIdx, $"Core ({coreIdx}) should precede Lib ({libIdx})");
+        Assert.IsLessThan(libIdx, coreIdx, $"Core ({coreIdx}) should precede Lib ({libIdx})");
     }
 
     [TestMethod]
@@ -95,9 +95,9 @@ public sealed class ProjectDagBuilderTests
         var coreIdx = names.IndexOf("Core");
         var libIdx  = names.IndexOf("Lib");
         var appIdx  = names.IndexOf("App");
-        Assert.IsTrue(coreIdx < libIdx, "Core before Lib");
-        Assert.IsTrue(libIdx  < appIdx, "Lib before App");
-        Assert.IsTrue(coreIdx < appIdx, "Core before App");
+        Assert.IsLessThan(libIdx,  coreIdx, "Core before Lib");
+        Assert.IsLessThan(appIdx,  libIdx,  "Lib before App");
+        Assert.IsLessThan(appIdx,  coreIdx, "Core before App");
     }
 
     // ─── BuildLevels ─────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ public sealed class ProjectDagBuilderTests
         var levels = ProjectDagBuilder.BuildLevels(nodes);
         var allInLevels = levels.SelectMany(l => l).Select(n => n.ProjectName).ToHashSet();
         foreach (var node in nodes.Values)
-            Assert.IsTrue(allInLevels.Contains(node.ProjectName),
+            Assert.Contains(node.ProjectName, allInLevels,
                 $"Node '{node.ProjectName}' missing from levels");
     }
 }

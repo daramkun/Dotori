@@ -50,7 +50,7 @@ public sealed class ProjectLocatorTests
     {
         var dir = FixturePath("single-project");
         var found = ProjectLocator.FindDotoriFiles(dir);
-        Assert.AreEqual(1, found.Count);
+        Assert.HasCount(1, found);
         StringAssert.EndsWith(found[0], ".dotori");
     }
 
@@ -59,7 +59,7 @@ public sealed class ProjectLocatorTests
     {
         var dir = FixturePath("multi-project");
         var found = ProjectLocator.FindDotoriFiles(dir);
-        Assert.AreEqual(2, found.Count);
+        Assert.HasCount(2, found);
         Assert.IsTrue(found.Any(p => p.Contains("app")));
         Assert.IsTrue(found.Any(p => p.Contains("lib")));
     }
@@ -72,7 +72,7 @@ public sealed class ProjectLocatorTests
         try
         {
             var found = ProjectLocator.FindDotoriFiles(tempDir);
-            Assert.AreEqual(0, found.Count);
+            Assert.IsEmpty(found);
         }
         finally
         {
@@ -91,8 +91,8 @@ public sealed class ProjectLocatorTests
         try
         {
             var found = ProjectLocator.FindDotoriFiles(subDir);
-            Assert.AreEqual(1, found.Count);
-            Assert.IsTrue(found[0].StartsWith(tempRoot));
+            Assert.HasCount(1, found);
+            Assert.StartsWith(tempRoot, found[0]);
         }
         finally
         {
@@ -132,7 +132,7 @@ public sealed class ProjectLocatorTests
         };
 
         var result = ProjectLocator.PromptSelection(projects, buildAll: true);
-        Assert.AreEqual(2, result.Count);
+        Assert.HasCount(2, result);
     }
 
     [TestMethod]
@@ -145,7 +145,7 @@ public sealed class ProjectLocatorTests
 
         // Should not have printed any prompt
         Assert.AreEqual(string.Empty, output.ToString());
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
     }
 
     [TestMethod]
@@ -162,7 +162,7 @@ public sealed class ProjectLocatorTests
 
         var result = ProjectLocator.PromptSelection(projects, stdin: input, stdout: output);
 
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
         StringAssert.Contains(result[0], "app");
     }
 
@@ -180,7 +180,7 @@ public sealed class ProjectLocatorTests
 
         var result = ProjectLocator.PromptSelection(projects, stdin: input, stdout: output);
 
-        Assert.AreEqual(2, result.Count);
+        Assert.HasCount(2, result);
     }
 
     [TestMethod]

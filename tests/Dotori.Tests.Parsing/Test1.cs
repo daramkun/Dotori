@@ -135,7 +135,7 @@ public sealed class ParserTests
         var file = DotoriParser.ParseFile(FixturePath("simple-app.dotori"));
         var sources = file.Project!.Items.OfType<SourcesBlock>().Single();
         Assert.IsFalse(sources.IsModules);
-        Assert.AreEqual(1, sources.Items.Count);
+        Assert.HasCount(1, sources.Items);
         Assert.AreEqual("src/**/*.cpp", sources.Items[0].Glob);
         Assert.IsTrue(sources.Items[0].IsInclude);
     }
@@ -145,7 +145,7 @@ public sealed class ParserTests
     {
         var file = DotoriParser.ParseFile(FixturePath("simple-app.dotori"));
         var deps = file.Project!.Items.OfType<DependenciesBlock>().Single();
-        Assert.AreEqual(2, deps.Items.Count);
+        Assert.HasCount(2, deps.Items);
 
         var myLib = deps.Items.First(d => d.Name == "my-lib");
         Assert.IsInstanceOfType<ComplexDependency>(myLib.Value);
@@ -161,7 +161,7 @@ public sealed class ParserTests
     {
         var file = DotoriParser.ParseFile(FixturePath("simple-app.dotori"));
         var conditions = file.Project!.Items.OfType<ConditionBlock>().ToList();
-        Assert.AreEqual(2, conditions.Count);
+        Assert.HasCount(2, conditions);
         Assert.AreEqual("debug",   conditions[0].Condition.ToString());
         Assert.AreEqual("release", conditions[1].Condition.ToString());
     }
@@ -176,7 +176,7 @@ public sealed class ParserTests
         Assert.AreEqual("my-lib",  file.Package.Name);
         Assert.AreEqual("1.0.0",   file.Package.Version);
         Assert.AreEqual("MIT",     file.Package.License);
-        Assert.AreEqual(2,         file.Package.Authors.Count);
+        Assert.HasCount(2, file.Package.Authors);
     }
 
     [TestMethod]
@@ -203,7 +203,7 @@ public sealed class ParserTests
         var unity = file.Project!.Items.OfType<UnityBuildBlock>().Single();
         Assert.IsTrue(unity.Enabled);
         Assert.AreEqual(8, unity.BatchSize);
-        Assert.AreEqual(1, unity.Exclude.Count);
+        Assert.HasCount(1, unity.Exclude);
         Assert.AreEqual("src/main.cpp", unity.Exclude[0]);
     }
 
@@ -248,7 +248,7 @@ public sealed class ParserTests
         var wasmEmscripten = file.Project!.Items.OfType<ConditionBlock>()
             .First(c => c.Condition.ToString() == "wasm.emscripten");
         var flags = wasmEmscripten.Items.OfType<EmscriptenFlagsProp>().Single();
-        Assert.AreEqual(2, flags.Flags.Count);
+        Assert.HasCount(2, flags.Flags);
         Assert.AreEqual("-sUSE_SDL=2", flags.Flags[0]);
     }
 }

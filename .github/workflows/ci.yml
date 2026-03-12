@@ -22,10 +22,10 @@ jobs:
     name: Build & Test (${{ matrix.rid }})
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -54,10 +54,10 @@ jobs:
     needs: build-and-test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -75,7 +75,7 @@ jobs:
           SDKROOT: ${{ matrix.os == 'macos-latest' && '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk' || '' }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotori-${{ matrix.rid }}
           path: src/Dotori.Cli/bin/Release/net10.0/${{ matrix.rid }}/publish/

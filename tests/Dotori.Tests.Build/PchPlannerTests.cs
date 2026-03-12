@@ -100,11 +100,11 @@ public sealed class PchPlannerTests
 
         Assert.IsNotNull(plan);
         Assert.IsNotNull(plan!.BuildJob);
-        Assert.IsTrue(plan.PchFile.EndsWith(".pch"), "PCH file should end with .pch");
+        Assert.EndsWith(".pch", plan.PchFile, "PCH file should end with .pch");
 
         var args = string.Join(" ", plan.BuildJob!.Args);
-        Assert.IsTrue(args.Contains("-x c++-header"), "Should contain -x c++-header");
-        Assert.IsTrue(args.Contains("-o"), "Should contain -o");
+        Assert.Contains("-x c++-header", args, "Should contain -x c++-header");
+        Assert.Contains("-o", args, "Should contain -o");
         Assert.IsFalse(plan.BuildJob!.Args.Contains("-c"), "Should not contain -c as standalone flag (removed)");
     }
 
@@ -157,12 +157,12 @@ public sealed class PchPlannerTests
 
         Assert.IsNotNull(plan);
         Assert.IsNotNull(plan!.BuildJob);
-        Assert.IsTrue(plan.PchFile.EndsWith(".pch"), "PCH file should end with .pch");
+        Assert.EndsWith(".pch", plan.PchFile, "PCH file should end with .pch");
 
         var args = string.Join(" ", plan.BuildJob!.Args);
-        Assert.IsTrue(args.Contains("/Yc"), "Should contain /Yc");
-        Assert.IsTrue(args.Contains("/Fp"), "Should contain /Fp");
-        Assert.IsFalse(args.Contains("/Yu"), "Should not contain /Yu when creating");
+        Assert.Contains("/Yc", args, "Should contain /Yc");
+        Assert.Contains("/Fp", args, "Should contain /Fp");
+        Assert.DoesNotContain("/Yu", args, "Should not contain /Yu when creating");
     }
 
     [TestMethod]
@@ -194,7 +194,7 @@ public sealed class PchPlannerTests
 
         var merged = PchPlanner.AddUseFlags(new[] { "-std=c++23", "-O2" }, plan);
 
-        Assert.AreEqual(3, merged.Count);
+        Assert.HasCount(3, merged);
         Assert.IsTrue(merged.Contains("-std=c++23"));
         Assert.IsTrue(merged.Contains("-O2"));
         Assert.IsTrue(merged.Any(f => f.Contains("-include-pch")));

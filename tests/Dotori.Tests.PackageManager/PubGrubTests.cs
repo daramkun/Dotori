@@ -103,7 +103,7 @@ public sealed class PubGrubSolverTests
             new Dictionary<string, VersionConstraint>(),
             CancellationToken.None);
 
-        Assert.AreEqual(0, result.Count);
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
@@ -207,7 +207,7 @@ public sealed class DependencyResolverTests
     {
         var project = MakeProject();
         var deps = DependencyResolver.CollectRootDependencies(project);
-        Assert.AreEqual(0, deps.Count);
+        Assert.IsEmpty(deps);
     }
 
     [TestMethod]
@@ -226,7 +226,7 @@ public sealed class DependencyResolverTests
     {
         var project = MakeProject(("my-lib", new ComplexDependency { Path = "../lib" }));
         var deps = DependencyResolver.CollectRootDependencies(project);
-        Assert.AreEqual(0, deps.Count);
+        Assert.IsEmpty(deps);
     }
 
     [TestMethod]

@@ -42,8 +42,8 @@ public sealed class UnityBatcherTests
         var (unityFiles, nonUnity) = UnityBatcher.CreateBatches(
             sources, [], [], batchSize: 8, unityDir);
 
-        Assert.AreEqual(1, unityFiles.Count);
-        Assert.AreEqual(0, nonUnity.Count);
+        Assert.HasCount(1, unityFiles);
+        Assert.IsEmpty(nonUnity);
     }
 
     [TestMethod]
@@ -56,7 +56,7 @@ public sealed class UnityBatcherTests
             sources, [], [], batchSize: 2, unityDir);
 
         // 5 files, batch size 2 → 3 batches (2+2+1)
-        Assert.AreEqual(3, unityFiles.Count);
+        Assert.HasCount(3, unityFiles);
     }
 
     [TestMethod]
@@ -72,7 +72,7 @@ public sealed class UnityBatcherTests
             sources, cppm, [], batchSize: 8, unityDir);
 
         // .cppm should be in nonUnity, .cpp in unity
-        Assert.AreEqual(1, unityFiles.Count);
+        Assert.HasCount(1, unityFiles);
         Assert.IsTrue(nonUnity.Any(f => f.EndsWith(".cppm")));
     }
 
@@ -86,8 +86,8 @@ public sealed class UnityBatcherTests
             sources, [], [], batchSize: 8, unityDir);
 
         var content = File.ReadAllText(unityFiles[0]);
-        Assert.IsTrue(content.Contains("#include"));
-        Assert.IsTrue(content.Contains("a.cpp"));
-        Assert.IsTrue(content.Contains("b.cpp"));
+        Assert.Contains("#include", content);
+        Assert.Contains("a.cpp", content);
+        Assert.Contains("b.cpp", content);
     }
 }
