@@ -68,15 +68,32 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Publish NativeAOT
+      - name: Publish NativeAOT (dotori CLI)
         run: dotnet publish src/Dotori.Cli/Dotori.Cli.csproj -c Release -r ${{ matrix.rid }} --self-contained
         env:
           # Use stable SDK path on macOS to avoid Xcode beta libdl issue
           SDKROOT: ${{ matrix.os == 'macos-latest' && '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk' || '' }}
 
+      - name: Publish dotori-server
+        run: dotnet publish src/Dotori.BuildServer/Dotori.BuildServer.csproj -c Release -r ${{ matrix.rid }} --self-contained
+
+      - name: Publish dotori-worker
+        run: dotnet publish src/Dotori.Worker/Dotori.Worker.csproj -c Release -r ${{ matrix.rid }} --self-contained
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          CLI_DIR=src/Dotori.Cli/bin/Release/net10.0/${{ matrix.rid }}/publish
+          SVR_DIR=src/Dotori.BuildServer/bin/Release/net10.0/${{ matrix.rid }}/publish
+          WRK_DIR=src/Dotori.Worker/bin/Release/net10.0/${{ matrix.rid }}/publish
+          for name in dotori dotori.exe; do [ -f "$CLI_DIR/$name" ] && cp "$CLI_DIR/$name" dist/; done
+          for name in dotori-server dotori-server.exe; do [ -f "$SVR_DIR/$name" ] && cp "$SVR_DIR/$name" dist/; done
+          for name in dotori-worker dotori-worker.exe; do [ -f "$WRK_DIR/$name" ] && cp "$WRK_DIR/$name" dist/; done
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: dotori-${{ matrix.rid }}
-          path: src/Dotori.Cli/bin/Release/net10.0/${{ matrix.rid }}/publish/
+          path: dist/
           retention-days: 7
