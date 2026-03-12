@@ -106,6 +106,8 @@ public sealed class SourcesBlock(bool isModules) : ProjectItem
 {
     public bool IsModules { get; } = isModules;
     public List<SourceItem> Items { get; } = new();
+    /// <summary>Only meaningful when IsModules=true. null = inherit default (true).</summary>
+    public bool? ExportMap { get; set; }
 }
 public sealed class SourceItem(bool isInclude, string glob)
 {
@@ -171,6 +173,23 @@ public sealed class UnityBuildBlock : ProjectItem
     public bool? Enabled { get; set; }
     public int? BatchSize { get; set; }
     public List<string> Exclude { get; } = new();
+}
+
+public sealed class OutputBlock : ProjectItem
+{
+    public string? Binaries  { get; set; }  // exe, dll/so/dylib copy dir
+    public string? Libraries { get; set; }  // .lib/.a copy dir
+    public string? Symbols   { get; set; }  // .pdb/.dSYM copy dir
+}
+
+public sealed class PreBuildBlock : ProjectItem
+{
+    public List<string> Commands { get; } = new();
+}
+
+public sealed class PostBuildBlock : ProjectItem
+{
+    public List<string> Commands { get; } = new();
 }
 
 public sealed class ConditionBlock(ConditionExpr condition) : ProjectItem

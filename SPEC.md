@@ -1,10 +1,10 @@
 # dotori — C++ 빌드 시스템 + 패키지 매니저 작업내역서
 
-> **작성일**: 2026-03-08  
-> **버전**: v1  
-> **구현 언어**: C# (.NET 8+, NativeAOT 배포)  
-> **목표**: Cargo 수준의 UX를 C++에 제공하는 독립형 빌드 시스템 + 패키지 매니저  
-> **외부 호환성**: 의도적으로 제외 (vcpkg/Conan/CMake 브리지 없음)  
+> **작성일**: 2026-03-08
+> **버전**: v1
+> **구현 언어**: C# (.NET 8+, NativeAOT 배포)
+> **목표**: Cargo 수준의 UX를 C++에 제공하는 독립형 빌드 시스템 + 패키지 매니저
+> **외부 호환성**: 의도적으로 제외 (vcpkg/Conan/CMake 브리지 없음)
 > **컴파일러 지원**: MSVC, Clang
 
 ---
@@ -52,7 +52,7 @@ subdir/
 
 ### 2-2. 멀티 프로젝트 레이아웃
 
-솔루션 파일 없이 `path` 의존성으로 프로젝트 간 관계를 표현합니다.  
+솔루션 파일 없이 `path` 의존성으로 프로젝트 간 관계를 표현합니다.
 빌드 순서는 의존성 그래프(DAG)에서 자동으로 결정됩니다.
 
 ```
@@ -189,6 +189,21 @@ project MyApp {
         batch-size = 8
         exclude    { "src/main.cpp" }
     }
+
+    output {
+        binaries  = "bin/"    (* exe, dll/so/dylib 복사 위치 — 프로젝트 루트 기준 상대경로 *)
+        libraries = "lib/"    (* .lib(import), .a(static) 복사 위치 *)
+        symbols   = "pdb/"    (* .pdb, .dSYM 복사 위치 *)
+    }
+
+    pre-build {
+        "scripts/gen_version.sh"
+        "scripts/download_assets.sh --quiet"
+    }
+
+    post-build {
+        "scripts/sign.sh --cert certs/release.p12"
+    }
 }
 ```
 
@@ -317,7 +332,7 @@ Error: Circular dependency detected:
 
 ### 4-4. 전체 빌드 시 독립 프로젝트 병렬화
 
-DAG에서 의존 관계가 없는 프로젝트들은 동시에 빌드합니다.  
+DAG에서 의존 관계가 없는 프로젝트들은 동시에 빌드합니다.
 예: `lib`와 `tools`가 모두 `core`에만 의존한다면, `core` 완료 후 `lib`와 `tools`를 병렬로 빌드합니다.
 
 ---
@@ -429,6 +444,9 @@ project_item    ::= project_prop
                   | dependencies_block
                   | pch_block
                   | unity_build_block
+                  | output_block
+                  | pre_build_block
+                  | post_build_block
                   | condition "{" { project_item } "}"
 
 project_prop    ::= "type"               "=" project_type
@@ -459,7 +477,7 @@ stdlib_type     ::= "libc++" | "libstdc++"
 warning_level   ::= "none" | "default" | "all" | "extra"
 
 sources_block   ::= "sources"    "{" { source_item } "}"
-modules_block   ::= "modules"    "{" { source_item } "}"
+modules_block   ::= "modules"    "{" { source_item } [ "export-map" "=" bool_val ] "}"
 source_item     ::= ( "include" | "exclude" ) path_glob
 
 headers_block   ::= "headers"    "{" { header_item } "}"
@@ -480,6 +498,27 @@ unity_build_block ::= "unity-build" "{" { unity_prop } "}"
 unity_prop      ::= "enabled"    "=" bool_val
                   | "batch-size" "=" integer
                   | "exclude"    "{" { path_glob } "}"
+
+output_block    ::= "output" "{" { output_prop } "}"
+output_prop     ::= "binaries"  "=" string   (* exe, dll/so/dylib 복사 경로 *)
+                  | "libraries" "=" string   (* .lib(import), .a(static) 복사 경로 *)
+                  | "symbols"   "=" string   (* .pdb, .dSYM 복사 경로 *)
+
+(* 경로는 .dotori 파일 기준 상대 경로. 빌드는 .dotori-cache/ 내에서 수행되고,
+   완료 후 지정 경로로 복사됨. 지정하지 않으면 복사하지 않음.
+   조건 블록 적용 가능: [release] { output { binaries = "dist/" } } *)
+
+pre_build_block  ::= "pre-build"  "{" { string } "}"
+post_build_block ::= "post-build" "{" { string } "}"
+
+(* 각 문자열은 실행할 명령어. 순서대로 실행되며, 종료 코드 != 0 이면 빌드 실패.
+   실행 디렉토리: 프로젝트 루트 (.dotori 위치).
+   조건 블록 적용 가능: [windows] { pre-build { "gen.bat" } }
+   전달되는 환경변수:
+     DOTORI_TARGET      — 빌드 타겟 (예: macos-arm64)
+     DOTORI_CONFIG      — Debug | Release
+     DOTORI_PROJECT_DIR — 프로젝트 루트 절대 경로
+     DOTORI_OUTPUT_DIR  — 링크 결과물 위치 (.dotori-cache/obj/<target>-<config>/) *)
 
 package_decl    ::= "package" "{" { package_item } "}"
 package_item    ::= "name"        "=" string
@@ -615,7 +654,7 @@ runtime-link: static 강제 (App Store 정책)
 
 ### 8-2. 빌드 순서
 
-의존성 스캔 결과(P1689)를 토폴로지 정렬하여 BMI 생성 순서를 확정합니다.  
+의존성 스캔 결과(P1689)를 토폴로지 정렬하여 BMI 생성 순서를 확정합니다.
 Unity Build는 Modules 소스 파일을 자동으로 제외합니다.
 
 ---
@@ -896,6 +935,83 @@ dotori --version
   - [x] `.cppm` 지정 시 BMI만 재생성되는지 확인
 - [x] PCH 빌드 검증 (macos-arm64)
 - [x] Unity Build 검증 (macos-arm64, exclude 패턴 동작 확인)
+
+---
+
+### Phase 1-J: 출력 디렉토리 분리 + 빌드 스크립트 + 모듈 Export Map
+
+#### 1. 출력 디렉토리 분리 (`output { }`)
+
+빌드 완료 후 아티팩트를 유형별로 지정 경로에 복사합니다.
+실제 빌드(컴파일·링크)는 기존과 동일하게 `.dotori-cache/obj/<target>-<config>/` 에서 수행됩니다.
+
+| `output` 프로퍼티 | 복사 대상 |
+|------------------|----------|
+| `binaries`  | 실행 파일(`.exe`), 공유 라이브러리(`.dll`/`.so`/`.dylib`) |
+| `libraries` | 정적 라이브러리(`.a`), Windows import 라이브러리(`.lib`) |
+| `symbols`   | 디버그 심볼(`.pdb`, `.dSYM`) |
+
+- 경로는 `.dotori` 파일 기준 상대 경로 (절대 경로도 허용)
+- 지정하지 않은 항목은 복사하지 않음
+- 디렉토리가 없으면 자동 생성
+- 조건 블록 적용 가능: `[release] { output { binaries = "dist/" } }`
+
+구현 대상:
+- [x] DSL 파서: `output { }` 블록 파싱
+- [x] `FlatProjectModel` 에 `OutputConfig` 추가
+- [x] `BuildPlanner` / `BuildCommand` 에 링크 후 복사 단계 추가
+- [ ] `dotori clean` 시 output 경로 복사본도 삭제
+
+#### 2. 빌드 전/후 스크립트 (`pre-build { }` / `post-build { }`)
+
+빌드 전·후에 임의 명령어를 순서대로 실행합니다.
+
+- `pre-build { }`: 컴파일 시작 직전 실행 (소스 생성, 버전 파일 생성 등)
+- `post-build { }`: 링크 + 아티팩트 복사 완료 직후 실행 (코드 서명, 패키징 등)
+- 각 문자열 = 실행할 명령어 한 줄 (쉘을 통해 실행)
+- 종료 코드 != 0 이면 빌드 즉시 실패
+- 실행 디렉토리: 프로젝트 루트 (`.dotori` 위치)
+- 조건 블록 적용 가능 (`[windows]`, `[release]` 등)
+- 전달 환경변수: `DOTORI_TARGET`, `DOTORI_CONFIG`, `DOTORI_PROJECT_DIR`, `DOTORI_OUTPUT_DIR`
+
+구현 대상:
+- [x] DSL 파서: `pre-build { }` / `post-build { }` 블록 파싱
+- [x] `FlatProjectModel` 에 `PreBuildCommands` / `PostBuildCommands` 추가
+- [x] `BuildCommand` / `RunCommand` 에 스크립트 실행 단계 삽입
+- [x] stdout/stderr → dotori 콘솔 출력으로 연결
+
+#### 3. C++ Modules Export Map (자동 생성)
+
+모듈 빌드 시 BMI(`.ifc`/`.pcm`)와 함께 모듈 맵 파일을 자동 생성합니다.
+DSL의 `modules { export-map = true }` 로 제어 (기본값: `true`).
+
+**생성 파일**: `.dotori-cache/obj/<target>-<config>/bmi/module-map.json`
+
+```json
+{
+  "version": 1,
+  "target": "macos-arm64",
+  "config": "debug",
+  "modules": [
+    {
+      "logical-name": "MyLib",
+      "source-file": "src/mylib.cppm",
+      "bmi-path": ".dotori-cache/obj/macos-arm64-debug/bmi/MyLib.pcm"
+    }
+  ]
+}
+```
+
+- MSVC: `/scanDependencies` 출력(P1689 JSON)에서 logical-name 추출
+- Clang: `clang-scan-deps` P1689 출력에서 추출
+- 패키지 배포 시(`dotori publish`) BMI와 module-map.json을 함께 패키징
+- IDE 확장(LSP)이 이 파일을 읽어 모듈 자동 완성에 활용 가능
+
+구현 대상:
+- [x] DSL 파서: `modules { export-map = true/false }` 파싱
+- [x] `FlatProjectModel` → `ModuleExportMap` 필드 추가
+- [x] `BuildPlanner.WriteModuleMap()`: BMI 생성 후 module-map.json 기록
+- [ ] `dotori clean` 시 module-map.json 삭제
 
 ---
 

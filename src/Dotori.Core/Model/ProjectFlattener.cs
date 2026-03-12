@@ -104,6 +104,8 @@ public static class ProjectFlattener
 
                 case SourcesBlock b when b.IsModules:
                     model.Modules.AddRange(b.Items);
+                    if (b.ExportMap.HasValue)
+                        model.ModuleExportMap = b.ExportMap.Value;
                     break;
 
                 case HeadersBlock b:
@@ -144,6 +146,21 @@ public static class ProjectFlattener
                     if (b.Enabled   != null) model.UnityBuild.Enabled   = b.Enabled.Value;
                     if (b.BatchSize != null) model.UnityBuild.BatchSize  = b.BatchSize.Value;
                     model.UnityBuild.Exclude.AddRange(b.Exclude);
+                    break;
+
+                case OutputBlock b:
+                    model.Output ??= new OutputConfig();
+                    if (b.Binaries  != null) model.Output.Binaries  = b.Binaries;
+                    if (b.Libraries != null) model.Output.Libraries = b.Libraries;
+                    if (b.Symbols   != null) model.Output.Symbols   = b.Symbols;
+                    break;
+
+                case PreBuildBlock b:
+                    model.PreBuildCommands.AddRange(b.Commands);
+                    break;
+
+                case PostBuildBlock b:
+                    model.PostBuildCommands.AddRange(b.Commands);
                     break;
             }
         }
