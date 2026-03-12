@@ -158,6 +158,19 @@ internal static class BuildContext
     }
 
     /// <summary>
+    /// Run a list of build scripts (pre-build or post-build) in order.
+    /// Each command is executed via the shell. Returns non-zero on first failure.
+    /// </summary>
+    internal static Task<int> RunScriptsAsync(
+        IReadOnlyList<string> commands,
+        string                projectDir,
+        string                targetId,
+        string                config,
+        string                outputDir,
+        CancellationToken     ct = default)
+        => Dotori.Core.Build.ScriptRunner.RunAsync(commands, projectDir, targetId, config, outputDir, ct);
+
+    /// <summary>
     /// Recursively collect public headers from dependency nodes and add them to model.
     /// </summary>
     private static void InjectDepHeaders(

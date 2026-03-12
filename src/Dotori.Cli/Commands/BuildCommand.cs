@@ -109,6 +109,19 @@ internal static class BuildCommandFactory
                         // Collect transitive dependency library paths
                         var depLibs = CollectDepLibs(node, builtLibraries);
 
+                        // Determine link output dir for env vars
+                        var linkOutDir = Path.Combine(model.ProjectDir, ".dotori-cache",
+                            "bin", $"{targetId}-{config.ToLower()}");
+
+                        // pre-build scripts
+                        if (model.PreBuildCommands.Count > 0)
+                        {
+                            var preCode = await BuildContext.RunScriptsAsync(
+                                model.PreBuildCommands, model.ProjectDir,
+                                targetId, config, linkOutDir, ct);
+                            if (preCode != 0) return preCode;
+                        }
+
                         // PCH — plan once, used by both --file and normal build paths
                         var pchPlan = planner.PlanPch(checker);
 
@@ -212,6 +225,8 @@ internal static class BuildCommandFactory
                                 if (bmiCode != 0) return bmiCode;
                             }
                             bmiPaths = BuildPlanner.ExtractBmiPaths(moduleJobs);
+                            // Write module-map.json after all BMIs are compiled
+                            planner.WriteModuleMap(moduleJobs);
                         }
 
                         var compileJobs = planner.PlanCompileJobs(checker, pchPlan: pchPlan, bmiPaths: bmiPaths);
@@ -257,6 +272,19 @@ internal static class BuildCommandFactory
 
                         Console.WriteLine($"  Linked: {linkJob.OutputFile}");
                         builtLibraries[node.DotoriPath] = linkJob.OutputFile;
+
+                        // Copy artifacts to user-specified output directories
+                        planner.CopyArtifacts(linkJob.OutputFile);
+
+                        // post-build scripts
+                        if (model.PostBuildCommands.Count > 0)
+                        {
+                            var postCode = await BuildContext.RunScriptsAsync(
+                                model.PostBuildCommands, model.ProjectDir,
+                                targetId, config, linkOutDir, ct);
+                            if (postCode != 0) return postCode;
+                        }
+
                         return 0;
                     });
 

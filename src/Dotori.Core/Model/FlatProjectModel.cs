@@ -45,6 +45,14 @@ public sealed class FlatProjectModel
     // Optional blocks (last one wins)
     public PchConfig?         Pch         { get; set; }
     public UnityBuildConfig?  UnityBuild  { get; set; }
+    public OutputConfig?      Output      { get; set; }
+
+    // Build scripts (accumulated across all applicable condition blocks)
+    public List<string> PreBuildCommands  { get; } = new();
+    public List<string> PostBuildCommands { get; } = new();
+
+    // Module export map generation (default: true when modules are present)
+    public bool ModuleExportMap { get; set; } = true;
 }
 
 public sealed class PchConfig
@@ -59,4 +67,14 @@ public sealed class UnityBuildConfig
     public bool        Enabled   { get; set; } = false;
     public int         BatchSize { get; set; } = 8;
     public List<string> Exclude  { get; } = new();
+}
+
+public sealed class OutputConfig
+{
+    /// <summary>Target directory for executables and shared libraries (dll/so/dylib). Relative to project root.</summary>
+    public string? Binaries  { get; set; }
+    /// <summary>Target directory for static libraries (.a) and Windows import libraries (.lib). Relative to project root.</summary>
+    public string? Libraries { get; set; }
+    /// <summary>Target directory for debug symbols (.pdb, .dSYM). Relative to project root.</summary>
+    public string? Symbols   { get; set; }
 }

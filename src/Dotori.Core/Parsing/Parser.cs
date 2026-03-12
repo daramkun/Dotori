@@ -140,6 +140,9 @@ public sealed class Parser
             "dependencies"       => ParseDependenciesBlock(loc),
             "pch"                => ParsePchBlock(loc),
             "unity-build"        => ParseUnityBuildBlock(loc),
+            "output"             => ParseOutputBlock(loc),
+            "pre-build"          => ParseBuildScriptBlock(loc, isPost: false),
+            "post-build"         => ParseBuildScriptBlock(loc, isPost: true),
             _                    => throw new ParseException($"Unknown project item '{Current.Text}'", loc),
         };
     }
@@ -187,12 +190,24 @@ public sealed class Parser
         Consume(); // "sources" or "modules"
         Expect(TokenKind.LBrace);
         var block = new SourcesBlock(isModules) { Location = loc };
-        while (Current.Kind == TokenKind.Ident &&
-               (Current.Text == "include" || Current.Text == "exclude"))
+        while (Current.Kind == TokenKind.Ident)
         {
-            var isInclude = Consume().Text == "include";
-            var glob = Expect(TokenKind.String).Text;
-            block.Items.Add(new SourceItem(isInclude, glob));
+            if (Current.Text == "include" || Current.Text == "exclude")
+            {
+                var isInclude = Consume().Text == "include";
+                var glob = Expect(TokenKind.String).Text;
+                block.Items.Add(new SourceItem(isInclude, glob));
+            }
+            else if (isModules && Current.Text == "export-map")
+            {
+                Consume(); // "export-map"
+                Expect(TokenKind.Equals);
+                block.ExportMap = ParseBool();
+            }
+            else
+            {
+                break;
+            }
         }
         Expect(TokenKind.RBrace);
         return block;
@@ -340,6 +355,49 @@ public sealed class Parser
         }
         Expect(TokenKind.RBrace);
         return block;
+    }
+
+    private OutputBlock ParseOutputBlock(SourceLocation loc)
+    {
+        Consume(); // "output"
+        Expect(TokenKind.LBrace);
+        var block = new OutputBlock { Location = loc };
+        while (Current.Kind == TokenKind.Ident)
+        {
+            var key = Consume().Text;
+            Expect(TokenKind.Equals);
+            switch (key)
+            {
+                case "binaries":  block.Binaries  = Expect(TokenKind.String).Text; break;
+                case "libraries": block.Libraries = Expect(TokenKind.String).Text; break;
+                case "symbols":   block.Symbols   = Expect(TokenKind.String).Text; break;
+                default: throw new ParseException($"Unknown output option '{key}'", Current.Location);
+            }
+        }
+        Expect(TokenKind.RBrace);
+        return block;
+    }
+
+    private ProjectItem ParseBuildScriptBlock(SourceLocation loc, bool isPost)
+    {
+        Consume(); // "pre-build" or "post-build"
+        Expect(TokenKind.LBrace);
+        if (isPost)
+        {
+            var block = new PostBuildBlock { Location = loc };
+            while (Current.Kind == TokenKind.String)
+                block.Commands.Add(Consume().Text);
+            Expect(TokenKind.RBrace);
+            return block;
+        }
+        else
+        {
+            var block = new PreBuildBlock { Location = loc };
+            while (Current.Kind == TokenKind.String)
+                block.Commands.Add(Consume().Text);
+            Expect(TokenKind.RBrace);
+            return block;
+        }
     }
 
     private ConditionBlock ParseConditionBlock()

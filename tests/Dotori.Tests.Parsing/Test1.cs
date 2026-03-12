@@ -251,4 +251,126 @@ public sealed class ParserTests
         Assert.HasCount(2, flags.Flags);
         Assert.AreEqual("-sUSE_SDL=2", flags.Flags[0]);
     }
+
+    // ─── Phase 1-J: output / pre-build / post-build / modules export-map ──────
+
+    [TestMethod]
+    public void Parser_OutputBlock_Parsed()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                output {
+                    binaries  = "bin/"
+                    libraries = "lib/"
+                    symbols   = "pdb/"
+                }
+            }
+            """, "<test>");
+        var block = file.Project!.Items.OfType<OutputBlock>().Single();
+        Assert.AreEqual("bin/",  block.Binaries);
+        Assert.AreEqual("lib/",  block.Libraries);
+        Assert.AreEqual("pdb/",  block.Symbols);
+    }
+
+    [TestMethod]
+    public void Parser_OutputBlock_PartialFields()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                output {
+                    binaries = "dist/"
+                }
+            }
+            """, "<test>");
+        var block = file.Project!.Items.OfType<OutputBlock>().Single();
+        Assert.AreEqual("dist/", block.Binaries);
+        Assert.IsNull(block.Libraries);
+        Assert.IsNull(block.Symbols);
+    }
+
+    [TestMethod]
+    public void Parser_PreBuildBlock_Parsed()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                pre-build {
+                    "scripts/gen_version.sh"
+                    "scripts/download_assets.sh"
+                }
+            }
+            """, "<test>");
+        var block = file.Project!.Items.OfType<PreBuildBlock>().Single();
+        Assert.HasCount(2, block.Commands);
+        Assert.AreEqual("scripts/gen_version.sh",     block.Commands[0]);
+        Assert.AreEqual("scripts/download_assets.sh", block.Commands[1]);
+    }
+
+    [TestMethod]
+    public void Parser_PostBuildBlock_Parsed()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                post-build {
+                    "scripts/sign.sh"
+                }
+            }
+            """, "<test>");
+        var block = file.Project!.Items.OfType<PostBuildBlock>().Single();
+        Assert.HasCount(1, block.Commands);
+        Assert.AreEqual("scripts/sign.sh", block.Commands[0]);
+    }
+
+    [TestMethod]
+    public void Parser_ModulesExportMap_Parsed()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyLib {
+                type = static-library
+                modules {
+                    include "src/**/*.cppm"
+                    export-map = false
+                }
+            }
+            """, "<test>");
+        var modules = file.Project!.Items.OfType<SourcesBlock>().Single(b => b.IsModules);
+        Assert.IsFalse(modules.ExportMap);
+    }
+
+    [TestMethod]
+    public void Parser_ModulesExportMap_DefaultNull()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyLib {
+                type = static-library
+                modules {
+                    include "src/**/*.cppm"
+                }
+            }
+            """, "<test>");
+        var modules = file.Project!.Items.OfType<SourcesBlock>().Single(b => b.IsModules);
+        Assert.IsNull(modules.ExportMap);
+    }
+
+    [TestMethod]
+    public void Parser_OutputBlock_InCondition()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                [release] {
+                    output {
+                        binaries = "dist/"
+                    }
+                }
+            }
+            """, "<test>");
+        var cond = file.Project!.Items.OfType<ConditionBlock>()
+            .First(c => c.Condition.ToString() == "release");
+        var block = cond.Items.OfType<OutputBlock>().Single();
+        Assert.AreEqual("dist/", block.Binaries);
+    }
 }
