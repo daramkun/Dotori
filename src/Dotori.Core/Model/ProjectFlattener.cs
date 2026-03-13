@@ -155,6 +155,14 @@ public static class ProjectFlattener
                     model.LinkFlags.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
+                case ResourcesBlock b:
+                    model.Resources.AddRange(b.Paths.Select(EnvExpander.Expand));
+                    break;
+
+                case ManifestProp p:
+                    model.Manifest = EnvExpander.Expand(p.Value);
+                    break;
+
                 case DependenciesBlock b:
                     // Merge: later entries with same name overwrite earlier ones
                     foreach (var dep in b.Items)
