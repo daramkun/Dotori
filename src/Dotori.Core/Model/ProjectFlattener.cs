@@ -66,6 +66,26 @@ public static class ProjectFlattener
         }
     }
 
+    // ─── Environment variable expansion ───────────────────────────────────
+
+    private static DependencyItem ExpandDependency(DependencyItem dep)
+    {
+        var expandedValue = dep.Value switch
+        {
+            VersionDependency v => (DependencyValue)new VersionDependency(EnvExpander.Expand(v.Version)),
+            ComplexDependency c => new ComplexDependency
+            {
+                Git     = EnvExpander.ExpandNullable(c.Git),
+                Tag     = EnvExpander.ExpandNullable(c.Tag),
+                Commit  = EnvExpander.ExpandNullable(c.Commit),
+                Path    = EnvExpander.ExpandNullable(c.Path),
+                Version = EnvExpander.ExpandNullable(c.Version),
+            },
+            _ => dep.Value,
+        };
+        return new DependencyItem(dep.Name, expandedValue);
+    }
+
     // ─── Item application ──────────────────────────────────────────────────
 
     private static void ApplyItems(FlatProjectModel model, List<ProjectItem> items)
@@ -79,7 +99,7 @@ public static class ProjectFlattener
             {
                 case ProjectTypeProp p:    model.Type        = p.Value; break;
                 case StdProp p:            model.Std         = p.Value; break;
-                case DescriptionProp p:    model.Description = p.Value; break;
+                case DescriptionProp p:    model.Description = EnvExpander.Expand(p.Value); break;
                 case OptimizeProp p:       model.Optimize    = p.Value; break;
                 case DebugInfoProp p:      model.DebugInfo   = p.Value; break;
                 case RuntimeLinkProp p:    model.RuntimeLink = p.Value; break;
@@ -89,63 +109,67 @@ public static class ProjectFlattener
                 case WarningsProp p:       model.Warnings    = p.Value; break;
                 case WarningsAsErrorsProp p: model.WarningsAsErrors = p.Value; break;
                 case AndroidApiLevelProp p:  model.AndroidApiLevel  = p.Value; break;
-                case MacosMinProp p:       model.MacosMin    = p.Value; break;
-                case IosMinProp p:         model.IosMin      = p.Value; break;
-                case TvosMinProp p:        model.TvosMin     = p.Value; break;
-                case WatchosMinProp p:     model.WatchosMin  = p.Value; break;
+                case MacosMinProp p:       model.MacosMin    = EnvExpander.Expand(p.Value); break;
+                case IosMinProp p:         model.IosMin      = EnvExpander.Expand(p.Value); break;
+                case TvosMinProp p:        model.TvosMin     = EnvExpander.Expand(p.Value); break;
+                case WatchosMinProp p:     model.WatchosMin  = EnvExpander.Expand(p.Value); break;
 
                 case EmscriptenFlagsProp p:
-                    model.EmscriptenFlags.AddRange(p.Flags);
+                    model.EmscriptenFlags.AddRange(p.Flags.Select(EnvExpander.Expand));
                     break;
 
                 case SourcesBlock b when !b.IsModules:
-                    model.Sources.AddRange(b.Items);
+                    foreach (var s in b.Items)
+                        model.Sources.Add(new SourceItem(s.IsInclude, EnvExpander.Expand(s.Glob)));
                     break;
 
                 case SourcesBlock b when b.IsModules:
-                    model.Modules.AddRange(b.Items);
+                    foreach (var s in b.Items)
+                        model.Modules.Add(new SourceItem(s.IsInclude, EnvExpander.Expand(s.Glob)));
                     if (b.ExportMap.HasValue)
                         model.ModuleExportMap = b.ExportMap.Value;
                     break;
 
                 case HeadersBlock b:
-                    model.Headers.AddRange(b.Items);
+                    foreach (var h in b.Items)
+                        model.Headers.Add(new HeaderItem(h.IsPublic, EnvExpander.Expand(h.Path)));
                     break;
 
                 case DefinesBlock b:
-                    model.Defines.AddRange(b.Values);
+                    model.Defines.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
                 case LinksBlock b:
-                    model.Links.AddRange(b.Values);
+                    model.Links.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
                 case FrameworksBlock b:
-                    model.Frameworks.AddRange(b.Values);
+                    model.Frameworks.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
                 case CompileFlagsBlock b:
-                    model.CompileFlags.AddRange(b.Values);
+                    model.CompileFlags.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
                 case LinkFlagsBlock b:
-                    model.LinkFlags.AddRange(b.Values);
+                    model.LinkFlags.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
                 case DependenciesBlock b:
                     // Merge: later entries with same name overwrite earlier ones
                     foreach (var dep in b.Items)
                     {
+                        var expandedDep = ExpandDependency(dep);
                         var idx = model.Dependencies.FindIndex(d => d.Name == dep.Name);
-                        if (idx >= 0) model.Dependencies[idx] = dep;
-                        else model.Dependencies.Add(dep);
+                        if (idx >= 0) model.Dependencies[idx] = expandedDep;
+                        else model.Dependencies.Add(expandedDep);
                     }
                     break;
 
                 case PchBlock b:
                     model.Pch ??= new PchConfig();
-                    if (b.Header  != null) model.Pch.Header  = b.Header;
-                    if (b.Source  != null) model.Pch.Source  = b.Source;
+                    if (b.Header  != null) model.Pch.Header  = EnvExpander.Expand(b.Header);
+                    if (b.Source  != null) model.Pch.Source  = EnvExpander.Expand(b.Source);
                     if (b.Modules != null) model.Pch.Modules = b.Modules;
                     break;
 
@@ -153,22 +177,22 @@ public static class ProjectFlattener
                     model.UnityBuild ??= new UnityBuildConfig();
                     if (b.Enabled   != null) model.UnityBuild.Enabled   = b.Enabled.Value;
                     if (b.BatchSize != null) model.UnityBuild.BatchSize  = b.BatchSize.Value;
-                    model.UnityBuild.Exclude.AddRange(b.Exclude);
+                    model.UnityBuild.Exclude.AddRange(b.Exclude.Select(EnvExpander.Expand));
                     break;
 
                 case OutputBlock b:
                     model.Output ??= new OutputConfig();
-                    if (b.Binaries  != null) model.Output.Binaries  = b.Binaries;
-                    if (b.Libraries != null) model.Output.Libraries = b.Libraries;
-                    if (b.Symbols   != null) model.Output.Symbols   = b.Symbols;
+                    if (b.Binaries  != null) model.Output.Binaries  = EnvExpander.Expand(b.Binaries);
+                    if (b.Libraries != null) model.Output.Libraries = EnvExpander.Expand(b.Libraries);
+                    if (b.Symbols   != null) model.Output.Symbols   = EnvExpander.Expand(b.Symbols);
                     break;
 
                 case PreBuildBlock b:
-                    model.PreBuildCommands.AddRange(b.Commands);
+                    model.PreBuildCommands.AddRange(b.Commands.Select(EnvExpander.Expand));
                     break;
 
                 case PostBuildBlock b:
-                    model.PostBuildCommands.AddRange(b.Commands);
+                    model.PostBuildCommands.AddRange(b.Commands.Select(EnvExpander.Expand));
                     break;
             }
         }
