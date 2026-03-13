@@ -124,6 +124,14 @@ public static class ProjectFlattener
                     model.Frameworks.AddRange(b.Values);
                     break;
 
+                case CompileFlagsBlock b:
+                    model.CompileFlags.AddRange(b.Values);
+                    break;
+
+                case LinkFlagsBlock b:
+                    model.LinkFlags.AddRange(b.Values);
+                    break;
+
                 case DependenciesBlock b:
                     // Merge: later entries with same name overwrite earlier ones
                     foreach (var dep in b.Items)

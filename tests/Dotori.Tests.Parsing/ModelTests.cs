@@ -370,4 +370,170 @@ public sealed class ProjectFlattenerTests
 
         Assert.IsFalse(model.ModuleExportMap);
     }
+
+    // ─── Phase 1-K: compile-flags / link-flags ──────────────────────────────
+
+    [TestMethod]
+    public void Flatten_CompileFlags_TopLevel_Accumulated()
+    {
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                compile-flags { "-DAPP_BUILD_NUMBER=42" }
+            }
+            """, LinuxDebug);
+
+        Assert.Contains("-DAPP_BUILD_NUMBER=42", model.CompileFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_LinkFlags_TopLevel_Accumulated()
+    {
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                link-flags { "-Wl,--as-needed" }
+            }
+            """, LinuxDebug);
+
+        Assert.Contains("-Wl,--as-needed", model.LinkFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_CompileFlags_ConditionApplied()
+    {
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug", Compiler = "clang", Runtime = "static",
+        };
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                [clang] {
+                    compile-flags { "-march=native" "-ffast-math" }
+                }
+                [msvc] {
+                    compile-flags { "/arch:AVX2" }
+                }
+            }
+            """, ctx);
+
+        Assert.Contains("-march=native", model.CompileFlags);
+        Assert.Contains("-ffast-math", model.CompileFlags);
+        Assert.DoesNotContain("/arch:AVX2", model.CompileFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_LinkFlags_ConditionApplied()
+    {
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "release", Compiler = "clang", Runtime = "static",
+        };
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                [clang] {
+                    link-flags { "-Wl,--as-needed" }
+                }
+                [msvc] {
+                    link-flags { "/OPT:REF" }
+                }
+            }
+            """, ctx);
+
+        Assert.Contains("-Wl,--as-needed", model.LinkFlags);
+        Assert.DoesNotContain("/OPT:REF", model.LinkFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_CompileFlags_Accumulated_AcrossMultipleBlocks()
+    {
+        // Common block + compiler condition block: both should be appended
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug", Compiler = "clang", Runtime = "static",
+        };
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                compile-flags { "-DCOMMON=1" }
+                [clang] {
+                    compile-flags { "-march=native" }
+                }
+                [debug] {
+                    compile-flags { "-DDEBUG_EXTRA" }
+                }
+            }
+            """, ctx);
+
+        Assert.Contains("-DCOMMON=1", model.CompileFlags);
+        Assert.Contains("-march=native", model.CompileFlags);
+        Assert.Contains("-DDEBUG_EXTRA", model.CompileFlags);
+        Assert.HasCount(3, model.CompileFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_CompileFlags_MoreSpecificConditionAppended()
+    {
+        // [release.msvc] should be appended (not override) after [msvc]
+        var ctx = new TargetContext
+        {
+            Platform = "windows", Config = "release", Compiler = "msvc", Runtime = "static",
+        };
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                [msvc] {
+                    compile-flags { "/arch:AVX2" }
+                }
+                [release.msvc] {
+                    compile-flags { "/Oi" "/Ot" }
+                }
+            }
+            """, ctx);
+
+        Assert.Contains("/arch:AVX2", model.CompileFlags);
+        Assert.Contains("/Oi", model.CompileFlags);
+        Assert.Contains("/Ot", model.CompileFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_CompileFlags_FromFixture_ClangContext()
+    {
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug", Compiler = "clang", Runtime = "static",
+        };
+        var model = Flatten("custom-flags.dotori", ctx);
+
+        // Top-level
+        Assert.Contains("-DAPP_BUILD_NUMBER=42", model.CompileFlags);
+        // [clang] block
+        Assert.Contains("-march=native", model.CompileFlags);
+        Assert.Contains("-ffast-math", model.CompileFlags);
+        // [debug] block
+        Assert.Contains("-DDEBUG_EXTRA", model.CompileFlags);
+        // [msvc] block should NOT be present
+        Assert.DoesNotContain("/arch:AVX2", model.CompileFlags);
+    }
+
+    [TestMethod]
+    public void Flatten_LinkFlags_FromFixture_MsvcContext()
+    {
+        var ctx = new TargetContext
+        {
+            Platform = "windows", Config = "release", Compiler = "msvc", Runtime = "static",
+        };
+        var model = Flatten("custom-flags.dotori", ctx);
+
+        // [msvc] block
+        Assert.Contains("/SUBSYSTEM:WINDOWS", model.LinkFlags);
+        Assert.Contains("/OPT:REF", model.LinkFlags);
+        // [release.msvc] block
+        Assert.Contains("/LTCG", model.LinkFlags);
+        // [clang] / [release.clang] blocks should NOT be present
+        Assert.DoesNotContain("-Wl,--as-needed", model.LinkFlags);
+        Assert.DoesNotContain("-Wl,--gc-sections", model.LinkFlags);
+    }
 }

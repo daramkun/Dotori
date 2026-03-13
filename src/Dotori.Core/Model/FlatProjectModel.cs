@@ -40,6 +40,8 @@ public sealed class FlatProjectModel
     public List<string>         Defines      { get; } = new();
     public List<string>         Links        { get; } = new();
     public List<string>         Frameworks   { get; } = new();
+    public List<string>         CompileFlags { get; } = new();
+    public List<string>         LinkFlags    { get; } = new();
     public List<DependencyItem> Dependencies { get; } = new();
 
     // Optional blocks (last one wins)

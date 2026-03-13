@@ -66,6 +66,9 @@ public static class AppleLinker
         foreach (var lib in model.Links)
             flags.Add($"-l{lib}");
 
+        // User-defined link flags (appended after dotori-generated flags)
+        flags.AddRange(model.LinkFlags);
+
         return flags;
     }
 

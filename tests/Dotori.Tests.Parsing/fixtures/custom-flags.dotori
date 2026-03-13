@@ -1,0 +1,32 @@
+project FlagsApp {
+    type = executable
+    std  = c++23
+
+    sources { include "src/**/*.cpp" }
+
+    (* Top-level: applies to all compilers — portability warning expected *)
+    compile-flags { "-DAPP_BUILD_NUMBER=42" }
+
+    [msvc] {
+        compile-flags { "/arch:AVX2" "/fp:fast" }
+        link-flags    { "/SUBSYSTEM:WINDOWS" "/OPT:REF" }
+    }
+
+    [clang] {
+        compile-flags { "-march=native" "-ffast-math" }
+        link-flags    { "-Wl,--as-needed" }
+    }
+
+    [debug] {
+        compile-flags { "-DDEBUG_EXTRA" }
+    }
+
+    [release.msvc] {
+        compile-flags { "/Oi" "/Ot" }
+        link-flags    { "/LTCG" }
+    }
+
+    [release.clang] {
+        link-flags { "-Wl,--gc-sections" }
+    }
+}

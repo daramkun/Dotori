@@ -89,6 +89,10 @@ internal static class InfoCommandFactory
                     {
                         Console.Error.WriteLine($"  Warning: '{path}' has neither project nor package block.");
                     }
+                    if (file.Project is not null)
+                    {
+                        CheckPortability(file.Project, path);
+                    }
                 }
                 catch (ParseException ex)
                 {
@@ -101,6 +105,34 @@ internal static class InfoCommandFactory
         });
 
         return command;
+    }
+
+    private static readonly HashSet<string> CompilerAtoms =
+        new(StringComparer.OrdinalIgnoreCase) { "msvc", "clang", "emscripten" };
+
+    /// <summary>
+    /// Warn when compile-flags or link-flags appear at the project top-level
+    /// (not inside any condition block), which means they apply to all compilers.
+    /// </summary>
+    private static void CheckPortability(ProjectDecl project, string path)
+    {
+        foreach (var item in project.Items)
+        {
+            if (item is CompileFlagsBlock cf && cf.Values.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"  Warning: '{path}' line {cf.Location.Line}: " +
+                    "compile-flags used without a compiler condition " +
+                    "(e.g. [msvc], [clang]) — may reduce portability");
+            }
+            else if (item is LinkFlagsBlock lf && lf.Values.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"  Warning: '{path}' line {lf.Location.Line}: " +
+                    "link-flags used without a compiler condition " +
+                    "(e.g. [msvc], [clang]) — may reduce portability");
+            }
+        }
     }
 
     private static Command CreateTargetsCommand()

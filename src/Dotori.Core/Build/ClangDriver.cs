@@ -123,6 +123,9 @@ public static class ClangDriver
         // Compile only (no link)
         flags.Add("-c");
 
+        // User-defined compile flags (appended after dotori-generated flags)
+        flags.AddRange(model.CompileFlags);
+
         // Remove any empty strings
         return flags.Where(f => !string.IsNullOrEmpty(f)).ToList();
     }
@@ -191,6 +194,9 @@ public static class ClangDriver
             flags.Add("-Wl,--no-entry");
             flags.Add("-Wl,--export-all");
         }
+
+        // User-defined link flags (appended after dotori-generated flags)
+        flags.AddRange(model.LinkFlags);
 
         return flags;
     }

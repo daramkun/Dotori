@@ -137,6 +137,14 @@ public sealed class FrameworksBlock : ProjectItem
 {
     public List<string> Values { get; } = new();
 }
+public sealed class CompileFlagsBlock : ProjectItem
+{
+    public List<string> Values { get; } = new();
+}
+public sealed class LinkFlagsBlock : ProjectItem
+{
+    public List<string> Values { get; } = new();
+}
 
 public sealed class DependenciesBlock : ProjectItem
 {
