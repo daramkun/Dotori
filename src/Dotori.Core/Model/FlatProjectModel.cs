@@ -44,6 +44,18 @@ public sealed class FlatProjectModel
     public List<string>         LinkFlags    { get; } = new();
     public List<DependencyItem> Dependencies { get; } = new();
 
+    // Apple-specific: custom framework/xcframework paths
+    /// <summary>
+    /// DSL-declared paths to .framework or .xcframework bundles.
+    /// Resolved at build time by BuildPlanner into FrameworkSearchPaths + Frameworks entries.
+    /// </summary>
+    public List<string> FrameworkPaths       { get; } = new();
+    /// <summary>
+    /// Resolved framework search directories (-F flags).
+    /// Populated by BuildPlanner.ResolveFrameworkPaths() from FrameworkPaths.
+    /// </summary>
+    public List<string> FrameworkSearchPaths { get; } = new();
+
     // Windows-specific: resource and manifest files
     public List<string> Resources { get; } = new();  // .rc file paths → compiled to .res by rc.exe
     public string?      Manifest  { get; set; }      // .manifest path → embedded by mt.exe after link

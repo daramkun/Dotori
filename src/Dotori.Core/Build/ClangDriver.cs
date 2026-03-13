@@ -96,6 +96,10 @@ public static class ClangDriver
             flags.Add($"-I\"{absPath}\"");
         }
 
+        // Custom framework search paths (-F) from framework-paths / xcframework resolution
+        foreach (var fp in model.FrameworkSearchPaths)
+            flags.Add($"-F\"{fp}\"");
+
         // macOS minimum version
         if (model.MacosMin is not null &&
             toolchain.TargetTriple.Contains("macosx"))

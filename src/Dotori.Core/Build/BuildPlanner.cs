@@ -35,6 +35,50 @@ public sealed class BuildPlanner
             model.ProjectDir, ".dotori-cache",
             "obj", $"{targetId}-{config.ToLower()}");
         Directory.CreateDirectory(_cacheDir);
+
+        // Resolve framework-paths (.framework / .xcframework) into search dirs + names
+        ResolveFrameworkPaths();
+    }
+
+    /// <summary>
+    /// Resolves each entry in <see cref="FlatProjectModel.FrameworkPaths"/> and
+    /// populates <see cref="FlatProjectModel.FrameworkSearchPaths"/> (for -F flags)
+    /// and appends to <see cref="FlatProjectModel.Frameworks"/> (for -framework flags).
+    /// </summary>
+    private void ResolveFrameworkPaths()
+    {
+        foreach (var fwPath in _model.FrameworkPaths)
+        {
+            var absPath = Path.IsPathRooted(fwPath)
+                ? fwPath
+                : Path.GetFullPath(Path.Combine(_model.ProjectDir, fwPath));
+
+            if (fwPath.EndsWith(".xcframework", StringComparison.OrdinalIgnoreCase))
+            {
+                var resolved = XcframeworkResolver.Resolve(absPath, _targetId);
+                if (resolved is null)
+                {
+                    Console.Error.WriteLine(
+                        $"Warning: no matching slice in xcframework for target '{_targetId}': {absPath}");
+                    continue;
+                }
+                _model.FrameworkSearchPaths.Add(resolved.SliceDir);
+                _model.Frameworks.Add(resolved.FrameworkName);
+            }
+            else if (fwPath.EndsWith(".framework", StringComparison.OrdinalIgnoreCase))
+            {
+                // Direct .framework reference: parent dir is the search path
+                var parentDir = Path.GetDirectoryName(absPath) ?? absPath;
+                var name      = Path.GetFileNameWithoutExtension(absPath);
+                _model.FrameworkSearchPaths.Add(parentDir);
+                _model.Frameworks.Add(name);
+            }
+            else
+            {
+                // Plain directory: treat as framework search path
+                _model.FrameworkSearchPaths.Add(absPath);
+            }
+        }
     }
 
     // ─── Compile jobs ─────────────────────────────────────────────────────────

@@ -137,6 +137,17 @@ public sealed class FrameworksBlock : ProjectItem
 {
     public List<string> Values { get; } = new();
 }
+
+/// <summary>
+/// Paths to .framework or .xcframework bundles (Apple only).
+/// At build time each entry is resolved to a framework search dir (-F)
+/// and framework name (-framework), then merged into the model.
+/// </summary>
+public sealed class FrameworkPathsBlock : ProjectItem
+{
+    public List<string> Paths { get; } = new();
+}
+
 public sealed class CompileFlagsBlock : ProjectItem
 {
     public List<string> Values { get; } = new();

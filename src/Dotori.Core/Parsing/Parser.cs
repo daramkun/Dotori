@@ -137,6 +137,7 @@ public sealed class Parser
             "defines"            => ParseDefinesBlock(loc),
             "links"              => ParseLinksBlock(loc),
             "frameworks"         => ParseFrameworksBlock(loc),
+            "framework-paths"    => ParseFrameworkPathsBlock(loc),
             "compile-flags"      => ParseCompileFlagsBlock(loc),
             "link-flags"         => ParseLinkFlagsBlock(loc),
             "resources"          => ParseResourcesBlock(loc),
@@ -264,6 +265,14 @@ public sealed class Parser
         Consume(); // "frameworks"
         var block = new FrameworksBlock { Location = loc };
         block.Values.AddRange(ParseStringList());
+        return block;
+    }
+
+    private FrameworkPathsBlock ParseFrameworkPathsBlock(SourceLocation loc)
+    {
+        Consume(); // "framework-paths"
+        var block = new FrameworkPathsBlock { Location = loc };
+        block.Paths.AddRange(ParseStringList());
         return block;
     }
 
