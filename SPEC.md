@@ -465,6 +465,22 @@ dependencies {
 
 **미적용 대상** (키워드/enum 값): `type`, `std`, `optimize`, `debug-info`, `runtime-link` 등 DSL 키워드는 환경변수 확장 없이 그대로 파싱됩니다.
 
+**dotori 자동 주입 변수** (`MakeTargetContext` 호출 시 프로세스 환경에 자동 설정):
+
+| 변수명 | 예시 값 | 설명 |
+|--------|---------|------|
+| `DOTORI_TARGET`   | `macos-arm64`, `windows-x64` | 전체 빌드 타겟 ID |
+| `DOTORI_CONFIG`   | `debug`, `release`           | 빌드 구성 |
+| `DOTORI_PLATFORM` | `windows`, `linux`, `macos`, `ios`, `android`, `wasm32` | 타겟 OS/플랫폼 |
+| `DOTORI_ARCH`     | `x64`, `x86`, `arm64`, `arm`, `arm64_32`, `wasm32`      | 타겟 CPU 아키텍처 |
+
+사용 예:
+```
+defines { "TARGET_PLATFORM=${DOTORI_PLATFORM}" "ARCH=${DOTORI_ARCH}" }
+output  { binaries = "bin/${DOTORI_TARGET}-${DOTORI_CONFIG}/" }
+pre-build { "scripts/codegen.sh --arch=${DOTORI_ARCH}" }
+```
+
 ```ebnf
 file            ::= { top_decl }
 top_decl        ::= project_decl | package_decl
