@@ -77,6 +77,9 @@ public static class LldLinker
             flags.Add("-Wl,--export-all");
         }
 
+        // User-defined link flags (appended after dotori-generated flags)
+        flags.AddRange(model.LinkFlags);
+
         return flags.Where(f => !string.IsNullOrEmpty(f)).ToList();
     }
 

@@ -57,6 +57,9 @@ public static class MsvcLinker
             flags.Add($"/LIBPATH:\"{Path.Combine(sdkLib, "ucrt", arch)}\"");
         }
 
+        // User-defined link flags (appended after dotori-generated flags)
+        flags.AddRange(model.LinkFlags);
+
         return flags;
     }
 

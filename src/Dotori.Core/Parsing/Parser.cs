@@ -137,6 +137,8 @@ public sealed class Parser
             "defines"            => ParseDefinesBlock(loc),
             "links"              => ParseLinksBlock(loc),
             "frameworks"         => ParseFrameworksBlock(loc),
+            "compile-flags"      => ParseCompileFlagsBlock(loc),
+            "link-flags"         => ParseLinkFlagsBlock(loc),
             "dependencies"       => ParseDependenciesBlock(loc),
             "pch"                => ParsePchBlock(loc),
             "unity-build"        => ParseUnityBuildBlock(loc),
@@ -259,6 +261,22 @@ public sealed class Parser
     {
         Consume(); // "frameworks"
         var block = new FrameworksBlock { Location = loc };
+        block.Values.AddRange(ParseStringList());
+        return block;
+    }
+
+    private CompileFlagsBlock ParseCompileFlagsBlock(SourceLocation loc)
+    {
+        Consume(); // "compile-flags"
+        var block = new CompileFlagsBlock { Location = loc };
+        block.Values.AddRange(ParseStringList());
+        return block;
+    }
+
+    private LinkFlagsBlock ParseLinkFlagsBlock(SourceLocation loc)
+    {
+        Consume(); // "link-flags"
+        var block = new LinkFlagsBlock { Location = loc };
         block.Values.AddRange(ParseStringList());
         return block;
     }

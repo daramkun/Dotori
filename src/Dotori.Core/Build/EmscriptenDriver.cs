@@ -50,6 +50,9 @@ public static class EmscriptenDriver
 
         flags.Add("-c");
 
+        // User-defined compile flags (appended after dotori-generated flags)
+        flags.AddRange(model.CompileFlags);
+
         return flags.Where(f => !string.IsNullOrEmpty(f)).ToList();
     }
 
@@ -69,6 +72,9 @@ public static class EmscriptenDriver
 
         foreach (var lib in model.Links)
             flags.Add($"-l{lib}");
+
+        // User-defined link flags (appended after dotori-generated flags)
+        flags.AddRange(model.LinkFlags);
 
         return flags;
     }

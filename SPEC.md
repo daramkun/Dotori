@@ -196,6 +196,29 @@ project MyApp {
         symbols   = "pdb/"    (* .pdb, .dSYM 복사 위치 *)
     }
 
+    (* 사용자 정의 컴파일러/링커 플래그 — 컴파일러별로 다른 값 지정 *)
+    [msvc] {
+        compile-flags { "/arch:AVX2" "/fp:fast" }
+        link-flags    { "/SUBSYSTEM:WINDOWS" "/OPT:REF" "/OPT:ICF" }
+    }
+
+    [clang] {
+        compile-flags { "-march=native" "-ffast-math" }
+    }
+
+    [clang.linux] {
+        link-flags { "-Wl,--as-needed" "-Wl,--gc-sections" }
+    }
+
+    [clang.macos] {
+        link-flags { "-Wl,-rpath,@executable_path/lib" }
+    }
+
+    [release.msvc] {
+        compile-flags { "/Oi" "/Ot" }
+        link-flags    { "/LTCG" }
+    }
+
     pre-build {
         "scripts/gen_version.sh"
         "scripts/download_assets.sh --quiet"
@@ -441,6 +464,8 @@ project_item    ::= project_prop
                   | defines_block
                   | links_block
                   | frameworks_block
+                  | compile_flags_block
+                  | link_flags_block
                   | dependencies_block
                   | pch_block
                   | unity_build_block
@@ -483,9 +508,18 @@ source_item     ::= ( "include" | "exclude" ) path_glob
 headers_block   ::= "headers"    "{" { header_item } "}"
 header_item     ::= ( "public" | "private" ) string
 
-defines_block   ::= "defines"    "{" { string | ident } "}"
-links_block     ::= "links"      "{" { string | ident } "}"
-frameworks_block::= "frameworks" "{" { string | ident } "}"
+defines_block   ::= "defines"       "{" { string | ident } "}"
+links_block     ::= "links"         "{" { string | ident } "}"
+frameworks_block::= "frameworks"    "{" { string | ident } "}"
+compile_flags_block ::= "compile-flags" "{" { string } "}"
+link_flags_block    ::= "link-flags"    "{" { string } "}"
+
+(* compile-flags: 각 소스 파일 컴파일 시 dotori 생성 플래그 뒤에 추가.
+   link-flags:    링크 단계에서 dotori 생성 플래그 뒤에 추가.
+   두 블록 모두 조건 블록과 함께 사용하는 것을 권장.
+   조건 없이 사용하면 `dotori check` 에서 이식성 경고를 출력함.
+   DSL 속성(std, optimize, runtime-link 등)으로 이미 제어 가능한 값을
+   compile-flags/link-flags 로 중복 지정하면 충돌 가능성이 있음. *)
 
 dependencies_block ::= "dependencies" "{" { dep_item } "}"
 dep_item        ::= ident "=" dep_value
@@ -698,6 +732,71 @@ Unity Build는 Modules 소스 파일을 자동으로 제외합니다.
 | Apple SDK | `-isysroot $(xcrun --sdk <sdk> --show-sdk-path)` |
 | Android sysroot | `--sysroot=$NDK/sysroot` |
 | WASM bare | `--target wasm32-unknown-unknown --no-standard-libraries` |
+
+### 사용자 정의 플래그 (`compile-flags` / `link-flags`)
+
+DSL 속성으로 제어되지 않는 컴파일러·링커 옵션을 직접 지정합니다.
+기존 조건 블록(`[msvc]`, `[clang]`, `[windows.release]` 등)을 사용해 컴파일러별로 다른 값을 줍니다.
+
+#### 적용 순서
+
+```
+[컴파일] dotori 생성 플래그  →  compile-flags 값 (순서대로)
+[링크]   dotori 생성 플래그  →  link-flags 값 (순서대로)
+```
+
+dotori가 생성한 플래그 **뒤에** 추가되므로, 컴파일러가 마지막 값을 우선하는 경우 사용자 플래그가 우선 적용됩니다.
+
+#### 사용 예시
+
+```
+project MyApp {
+    (* 모든 컴파일러·플랫폼에 공통 적용 — 이식성 경고 발생 *)
+    compile-flags { "-DAPP_BUILD_NUMBER=42" }
+
+    (* MSVC 전용 *)
+    [msvc] {
+        compile-flags { "/arch:AVX2" "/fp:fast" }
+        link-flags    { "/SUBSYSTEM:WINDOWS" "/OPT:REF" "/OPT:ICF" }
+    }
+
+    (* Clang 전용 — 모든 플랫폼 *)
+    [clang] {
+        compile-flags { "-march=native" "-ffast-math" "-fno-exceptions" }
+    }
+
+    (* Clang + Linux 조합 *)
+    [clang.linux] {
+        link-flags { "-Wl,--as-needed" "-Wl,--gc-sections" }
+    }
+
+    (* Clang + macOS 조합 *)
+    [clang.macos] {
+        link-flags { "-Wl,-rpath,@executable_path/lib" }
+    }
+
+    (* MSVC + Release 조합 *)
+    [release.msvc] {
+        compile-flags { "/Oi" "/Ot" }
+        link-flags    { "/LTCG" }
+    }
+
+    (* Emscripten — compile-flags 로 emcc 범용 옵션 전달 *)
+    [wasm.emscripten] {
+        compile-flags    { "-fno-exceptions" }
+        emscripten-flags { "-sUSE_SDL=2" "-sALLOW_MEMORY_GROWTH" }
+    }
+}
+```
+
+#### 주의 사항
+
+| 사항 | 내용 |
+|------|------|
+| 이식성 | 조건 블록 없이 사용하면 다른 컴파일러에서 빌드 실패 가능. `dotori check` 가 경고 출력 |
+| DSL 속성과 중복 | `std`, `optimize`, `runtime-link` 등 DSL 속성으로 이미 제어 가능한 값을 `compile-flags`로 재지정하면 충돌 가능 |
+| 플래그 순서 | dotori 생성 플래그 뒤에 추가. 링커는 플래그 순서에 민감할 수 있음 |
+| Emscripten | emcc 전용 `-s` 계열 옵션은 `emscripten-flags`를, 나머지 컴파일 옵션은 `[wasm.emscripten] { compile-flags {} }`를 사용 |
 
 ---
 
@@ -1012,6 +1111,28 @@ DSL의 `modules { export-map = true }` 로 제어 (기본값: `true`).
 - [x] `FlatProjectModel` → `ModuleExportMap` 필드 추가
 - [x] `BuildPlanner.WriteModuleMap()`: BMI 생성 후 module-map.json 기록
 - [ ] `dotori clean` 시 module-map.json 삭제
+
+---
+
+### Phase 1-K: 사용자 정의 컴파일러/링커 플래그 (`compile-flags` / `link-flags`)
+
+DSL 속성으로 제어되지 않는 컴파일러·링커 옵션을 직접 지정하는 기능.
+기존 조건 블록(`[msvc]`, `[clang]`, `[windows]`, `[release]` 등)과 조합해 컴파일러별로 다른 값을 줄 수 있음.
+
+구현 대상:
+- [ ] DSL 파서: `compile-flags { }` / `link-flags { }` 블록 파싱
+- [ ] `FlatProjectModel` 에 `CompileFlags` / `LinkFlags` (`List<string>`) 추가
+  - 조건 병합 시 리스트를 **누적(append)** 방식으로 병합 (덮어쓰기 아님)
+- [ ] `MsvcDriver` / `ClangDriver` / `EmscriptenDriver` 에 compile-flags 주입
+  - dotori 생성 플래그 **뒤에** 추가
+- [ ] `MsvcLinker` / `LldLinker` / `AppleLinker` 에 link-flags 주입
+  - dotori 생성 플래그 **뒤에** 추가
+- [ ] `dotori check`: 조건 블록 없이 `compile-flags`/`link-flags` 사용 시 이식성 경고 출력
+  - 메시지: `warning: compile-flags used without a compiler condition (e.g. [msvc], [clang]) — may reduce portability`
+- [ ] 단위 테스트
+  - DSL 파서: 조건 블록 내/외 `compile-flags` / `link-flags` 파싱
+  - 플래그 병합: `[msvc]` 조건 + 공통 블록의 누적 동작 검증
+  - 드라이버 플래그 주입: 생성된 컴파일 커맨드에 사용자 플래그가 포함되는지 검증
 
 ---
 

@@ -140,6 +140,32 @@ public sealed class LldLinkerTests
         Assert.HasCount(2, job.InputFiles);
         Assert.IsTrue(job.Args.Any(a => a.Contains("a.o")));
     }
+
+    [TestMethod]
+    public void LinkFlags_UserLinkFlags_AppendedAfterDotoriFlags()
+    {
+        var model = new FlatProjectModel
+        {
+            Name       = "MyApp",
+            ProjectDir = "/tmp/project",
+            DotoriPath = "/tmp/project/.dotori",
+        };
+        model.LinkFlags.Add("-Wl,--as-needed");
+        model.LinkFlags.Add("-Wl,--gc-sections");
+
+        var toolchain = MakeToolchain("x86_64-unknown-linux-gnu");
+        var flags = LldLinker.LinkFlags(model, toolchain, "/out/app");
+
+        // dotori flags should appear first
+        var targetIdx  = flags.ToList().FindIndex(f => f.StartsWith("--target="));
+        var outputIdx  = flags.ToList().FindIndex(f => f.StartsWith("-o "));
+        var userFlag1  = flags.ToList().FindIndex(f => f == "-Wl,--as-needed");
+        var userFlag2  = flags.ToList().FindIndex(f => f == "-Wl,--gc-sections");
+
+        Assert.IsTrue(targetIdx  >= 0, "Should contain target triple");
+        Assert.IsTrue(userFlag1  > outputIdx,  "User flags should come after dotori flags");
+        Assert.IsTrue(userFlag2  > userFlag1,  "User flags should preserve order");
+    }
 }
 
 [TestClass]
@@ -289,5 +315,20 @@ public sealed class AppleLinkerTests
 
         Assert.AreEqual("/out/app", job.OutputFile);
         Assert.HasCount(2, job.InputFiles);
+    }
+
+    [TestMethod]
+    public void LinkFlags_UserLinkFlags_AppendedAfterDotoriFlags()
+    {
+        var model = MakeModel();
+        model.LinkFlags.Add("-Wl,-rpath,@executable_path/lib");
+
+        var toolchain = MakeToolchain("arm64-apple-macosx14.0");
+        var flags = AppleLinker.LinkFlags(model, toolchain, "/out/app");
+
+        var outputIdx  = flags.ToList().FindIndex(f => f.StartsWith("-o "));
+        var userFlagIdx = flags.ToList().FindIndex(f => f == "-Wl,-rpath,@executable_path/lib");
+
+        Assert.IsTrue(userFlagIdx > outputIdx, "User link flags should come after dotori-generated flags");
     }
 }

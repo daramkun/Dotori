@@ -89,6 +89,9 @@ public static class MsvcDriver
         // Compile only (no link)
         flags.Add("/c");
 
+        // User-defined compile flags (appended after dotori-generated flags)
+        flags.AddRange(model.CompileFlags);
+
         return flags;
     }
 
