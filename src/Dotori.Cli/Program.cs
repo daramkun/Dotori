@@ -7,7 +7,14 @@ rootCommand.Add(BuildCommandFactory.Create());
 rootCommand.Add(RunCommandFactory.Create());
 rootCommand.Add(TestCommandFactory.Create());
 rootCommand.Add(CleanCommandFactory.Create());
-rootCommand.Add(PackageCommandFactory.Create());
+
+// Package management commands (also available under `dotori package`)
+rootCommand.Add(PackageCommandFactory.CreateAddCommand());
+rootCommand.Add(PackageCommandFactory.CreateRemoveCommand());
+rootCommand.Add(PackageCommandFactory.CreateUpdateCommand());
+rootCommand.Add(PackageCommandFactory.CreateListCommand());
+rootCommand.Add(PackageCommandFactory.Create());   // `dotori package ...` alias
+
 rootCommand.Add(InfoCommandFactory.Create());
 rootCommand.Add(ExportCommandFactory.Create());
 
