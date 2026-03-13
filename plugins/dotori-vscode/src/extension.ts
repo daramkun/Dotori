@@ -4,6 +4,9 @@ import { DotoriTaskProvider } from './taskProvider';
 import { DotoriStatusBar } from './statusBar';
 import { DotoriDebugConfigurationProvider } from './debugConfigProvider';
 import { DotoriFileWatcher } from './dotoriFileWatcher';
+import { DotoriHoverProvider } from './hoverProvider';
+import { DotoriDiagnosticsProvider } from './diagnosticsProvider';
+import { DotoriProjectTreeProvider } from './projectTreeProvider';
 
 // ── Known build targets for quick-pick ───────────────────────────────────────
 const KNOWN_TARGETS = [
@@ -47,6 +50,20 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('dotori.exportCompileCommands', exportCompileCommands),
         vscode.commands.registerCommand('dotori.selectTarget', selectTarget),
         vscode.commands.registerCommand('dotori.selectConfig', selectConfig),
+    );
+
+    // ── Hover tooltip provider ────────────────────────────────────────────
+    context.subscriptions.push(
+        vscode.languages.registerHoverProvider('dotori', new DotoriHoverProvider())
+    );
+
+    // ── Error diagnostics ─────────────────────────────────────────────────
+    new DotoriDiagnosticsProvider(context);
+
+    // ── Project tree view ─────────────────────────────────────────────────
+    const treeProvider = new DotoriProjectTreeProvider(context);
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider('dotoriProjects', treeProvider)
     );
 
     // ── .dotori file watcher → auto-regenerate compile_commands.json ─────

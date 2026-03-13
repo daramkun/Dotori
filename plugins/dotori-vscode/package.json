@@ -85,7 +85,23 @@
         }
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "dotoriProjects",
+          "name": "Dotori Projects",
+          "when": "dotori.isWorkspace",
+          "icon": "$(package)"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "dotori.refreshTree",
+        "title": "Refresh Project Tree",
+        "category": "Dotori",
+        "icon": "$(refresh)"
+      },
       {
         "command": "dotori.build",
         "title": "Build",
@@ -132,7 +148,15 @@
         { "command": "dotori.clean",                 "when": "dotori.isWorkspace" },
         { "command": "dotori.exportCompileCommands", "when": "dotori.isWorkspace" },
         { "command": "dotori.selectTarget",          "when": "dotori.isWorkspace" },
-        { "command": "dotori.selectConfig",          "when": "dotori.isWorkspace" }
+        { "command": "dotori.selectConfig",          "when": "dotori.isWorkspace" },
+        { "command": "dotori.refreshTree",            "when": "dotori.isWorkspace" }
+      ],
+      "view/title": [
+        {
+          "command": "dotori.refreshTree",
+          "when": "view == dotoriProjects",
+          "group": "navigation"
+        }
       ]
     },
     "debuggers": [
