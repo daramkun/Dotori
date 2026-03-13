@@ -112,6 +112,13 @@ internal static class BuildContext
         var platform = parts.Length > 0 ? parts[0] : "linux";
         var compiler = parts.Any(p => p is "msvc") ? "msvc" : "clang";
 
+        // Inject build context into the process environment so .dotori files
+        // can reference them via ${DOTORI_CONFIG}, ${DOTORI_PLATFORM}, etc.
+        Environment.SetEnvironmentVariable("DOTORI_TARGET",   targetId);
+        Environment.SetEnvironmentVariable("DOTORI_CONFIG",   config);
+        Environment.SetEnvironmentVariable("DOTORI_PLATFORM", platform);
+        Environment.SetEnvironmentVariable("DOTORI_ARCH",     ExtractArch(parts));
+
         return new TargetContext
         {
             Platform = platform,
@@ -124,6 +131,21 @@ internal static class BuildContext
                         : targetId.Contains("bare")       ? "bare"
                         : null,
         };
+    }
+
+    /// <summary>
+    /// Extract the CPU architecture identifier from target ID parts.
+    /// Known archs: x64, x86, arm64, arm64_32, arm, wasm32.
+    /// </summary>
+    private static string ExtractArch(string[] parts)
+    {
+        foreach (var part in parts)
+        {
+            if (part is "x64" or "x86" or "arm64" or "arm64_32" or "arm" or "wasm32")
+                return part;
+        }
+        // Fallback: last segment (e.g. unknown future arch)
+        return parts.Length > 1 ? parts[^1] : "x64";
     }
 
     /// <summary>
