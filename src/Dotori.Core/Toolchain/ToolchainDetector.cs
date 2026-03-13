@@ -125,6 +125,8 @@ public static class ToolchainDetector
                 WinSdkDir    = winSdkDir,
                 WinSdkVer    = winSdkVer!,
                 Architecture = arch,
+                RcPath = FindSdkTool(winSdkDir, winSdkVer!, "rc.exe"),
+                MtPath = FindSdkTool(winSdkDir, winSdkVer!, "mt.exe"),
             } : new MsvcPaths
             {
                 VcToolsDir   = vcToolsDir,
@@ -329,6 +331,16 @@ public static class ToolchainDetector
             Architecture.Arm64 => "arm64",
             _                 => "x64",
         };
+
+    /// <summary>
+    /// Look up a Windows SDK tool (e.g. rc.exe, mt.exe) in the host-arch bin directory.
+    /// Returns null if the file does not exist.
+    /// </summary>
+    private static string? FindSdkTool(string winSdkDir, string winSdkVer, string toolName)
+    {
+        var path = Path.Combine(winSdkDir, "bin", winSdkVer, HostArch, toolName);
+        return File.Exists(path) ? path : null;
+    }
 
     private static string? RunVswhere()
     {

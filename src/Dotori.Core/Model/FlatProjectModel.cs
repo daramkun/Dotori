@@ -44,6 +44,10 @@ public sealed class FlatProjectModel
     public List<string>         LinkFlags    { get; } = new();
     public List<DependencyItem> Dependencies { get; } = new();
 
+    // Windows-specific: resource and manifest files
+    public List<string> Resources { get; } = new();  // .rc file paths → compiled to .res by rc.exe
+    public string?      Manifest  { get; set; }      // .manifest path → embedded by mt.exe after link
+
     // Optional blocks (last one wins)
     public PchConfig?         Pch         { get; set; }
     public UnityBuildConfig?  UnityBuild  { get; set; }

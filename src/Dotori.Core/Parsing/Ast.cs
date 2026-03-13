@@ -146,6 +146,18 @@ public sealed class LinkFlagsBlock : ProjectItem
     public List<string> Values { get; } = new();
 }
 
+/// <summary>Windows resource files (.rc) to compile with rc.exe.</summary>
+public sealed class ResourcesBlock : ProjectItem
+{
+    public List<string> Paths { get; } = new();
+}
+
+/// <summary>Windows application manifest file (.manifest) to embed after linking.</summary>
+public sealed class ManifestProp(string value) : ProjectItem
+{
+    public string Value { get; } = value;
+}
+
 public sealed class DependenciesBlock : ProjectItem
 {
     public List<DependencyItem> Items { get; } = new();

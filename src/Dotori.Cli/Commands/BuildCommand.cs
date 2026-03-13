@@ -230,7 +230,17 @@ internal static class BuildCommandFactory
                         }
 
                         var compileJobs = planner.PlanCompileJobs(checker, pchPlan: pchPlan, bmiPaths: bmiPaths);
-                        if (compileJobs.Count == 0 && moduleJobs.Count == 0)
+                        // RC resource compilation (Windows MSVC only, runs before link)
+                        var rcJobs = planner.PlanRcJobs();
+                        if (rcJobs.Count > 0)
+                        {
+                            var rcResults = await executor.RunCompileJobsAsync(
+                                toolchain.Msvc!.RcPath!, rcJobs, ct);
+                            int rcCode = PrintResults(rcResults);
+                            if (rcCode != 0) return rcCode;
+                        }
+
+                        if (compileJobs.Count == 0 && moduleJobs.Count == 0 && rcJobs.Count == 0)
                         {
                             Console.WriteLine($"  {model.Name}: up to date");
                             return 0;
@@ -258,6 +268,7 @@ internal static class BuildCommandFactory
                             : Enumerable.Empty<string>();
                         var objFiles = compileJobs.Select(j => j.OutputFile)
                             .Concat(modulePcmFiles)
+                            .Concat(rcJobs.Select(j => j.OutputFile))   // .res files → linker
                             .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
                             .ToList();
                         var linkJob  = planner.PlanLinkJob(objFiles);
@@ -272,6 +283,10 @@ internal static class BuildCommandFactory
 
                         Console.WriteLine($"  Linked: {linkJob.OutputFile}");
                         builtLibraries[node.DotoriPath] = linkJob.OutputFile;
+
+                        // Manifest embedding (Windows MSVC only, runs after link)
+                        if (!await planner.EmbedManifestAsync(linkJob.OutputFile, ct))
+                            return 1;
 
                         // Copy artifacts to user-specified output directories
                         planner.CopyArtifacts(linkJob.OutputFile);

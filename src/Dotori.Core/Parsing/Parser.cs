@@ -139,6 +139,8 @@ public sealed class Parser
             "frameworks"         => ParseFrameworksBlock(loc),
             "compile-flags"      => ParseCompileFlagsBlock(loc),
             "link-flags"         => ParseLinkFlagsBlock(loc),
+            "resources"          => ParseResourcesBlock(loc),
+            "manifest"           => ParseManifestProp(loc),
             "dependencies"       => ParseDependenciesBlock(loc),
             "pch"                => ParsePchBlock(loc),
             "unity-build"        => ParseUnityBuildBlock(loc),
@@ -279,6 +281,22 @@ public sealed class Parser
         var block = new LinkFlagsBlock { Location = loc };
         block.Values.AddRange(ParseStringList());
         return block;
+    }
+
+    private ResourcesBlock ParseResourcesBlock(SourceLocation loc)
+    {
+        Consume(); // "resources"
+        var block = new ResourcesBlock { Location = loc };
+        block.Paths.AddRange(ParseStringList());
+        return block;
+    }
+
+    private ManifestProp ParseManifestProp(SourceLocation loc)
+    {
+        Consume(); // "manifest"
+        Expect(TokenKind.Equals);
+        var val = Expect(TokenKind.String).Text;
+        return new ManifestProp(val) { Location = loc };
     }
 
     private DependenciesBlock ParseDependenciesBlock(SourceLocation loc)
