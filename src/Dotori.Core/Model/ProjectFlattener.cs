@@ -147,6 +147,10 @@ public static class ProjectFlattener
                     model.Frameworks.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;
 
+                case FrameworkPathsBlock b:
+                    model.FrameworkPaths.AddRange(b.Paths.Select(EnvExpander.Expand));
+                    break;
+
                 case CompileFlagsBlock b:
                     model.CompileFlags.AddRange(b.Values.Select(EnvExpander.Expand));
                     break;

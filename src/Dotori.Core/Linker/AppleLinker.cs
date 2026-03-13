@@ -36,7 +36,11 @@ public static class AppleLinker
         // stdlib is always libc++ on Apple platforms
         flags.Add("-stdlib=libc++");
 
-        // Apple frameworks
+        // Custom framework search paths (-F) — must come before -framework flags
+        foreach (var fp in model.FrameworkSearchPaths)
+            flags.Add($"-F\"{fp}\"");
+
+        // Apple frameworks (system + resolved from framework-paths / xcframeworks)
         foreach (var fw in model.Frameworks)
         {
             flags.Add("-framework");
