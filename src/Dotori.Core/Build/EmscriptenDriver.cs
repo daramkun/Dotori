@@ -98,18 +98,8 @@ public static class EmscriptenDriver
     }
 
     public static LinkJob MakeLinkJob(
-        IEnumerable<string> objFiles,
-        string outputFile,
-        IReadOnlyList<string> linkFlags)
-    {
-        var args = new List<string>(linkFlags);
-        foreach (var obj in objFiles) args.Add($"\"{obj}\"");
-
-        return new LinkJob
-        {
-            InputFiles = objFiles.ToArray(),
-            OutputFile = outputFile,
-            Args       = args.ToArray(),
-        };
-    }
+        IEnumerable<string>   objFiles,
+        string                outputFile,
+        IReadOnlyList<string> linkFlags) =>
+        LinkJobFactory.Create(objFiles, outputFile, linkFlags);
 }

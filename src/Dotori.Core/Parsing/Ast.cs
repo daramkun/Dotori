@@ -125,15 +125,24 @@ public sealed class HeaderItem(bool isPublic, string path)
     public string Path { get; } = path;
 }
 
-public sealed class DefinesBlock : ProjectItem
+/// <summary>
+/// Marker interface for AST blocks that hold a flat string-value list.
+/// Enables a single generic parser helper instead of one method per block type.
+/// </summary>
+public interface IStringValuesBlock
+{
+    List<string> Values { get; }
+}
+
+public sealed class DefinesBlock : ProjectItem, IStringValuesBlock
 {
     public List<string> Values { get; } = new();
 }
-public sealed class LinksBlock : ProjectItem
+public sealed class LinksBlock : ProjectItem, IStringValuesBlock
 {
     public List<string> Values { get; } = new();
 }
-public sealed class FrameworksBlock : ProjectItem
+public sealed class FrameworksBlock : ProjectItem, IStringValuesBlock
 {
     public List<string> Values { get; } = new();
 }
@@ -148,11 +157,11 @@ public sealed class FrameworkPathsBlock : ProjectItem
     public List<string> Paths { get; } = new();
 }
 
-public sealed class CompileFlagsBlock : ProjectItem
+public sealed class CompileFlagsBlock : ProjectItem, IStringValuesBlock
 {
     public List<string> Values { get; } = new();
 }
-public sealed class LinkFlagsBlock : ProjectItem
+public sealed class LinkFlagsBlock : ProjectItem, IStringValuesBlock
 {
     public List<string> Values { get; } = new();
 }

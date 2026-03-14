@@ -67,16 +67,6 @@ public static class MsvcLinker
     public static LinkJob MakeLinkJob(
         IEnumerable<string>   objFiles,
         string                outputFile,
-        IReadOnlyList<string> linkFlags)
-    {
-        var args = new List<string>(linkFlags);
-        foreach (var obj in objFiles) args.Add($"\"{obj}\"");
-
-        return new LinkJob
-        {
-            InputFiles = objFiles.ToArray(),
-            OutputFile = outputFile,
-            Args       = args.ToArray(),
-        };
-    }
+        IReadOnlyList<string> linkFlags) =>
+        LinkJobFactory.Create(objFiles, outputFile, linkFlags);
 }

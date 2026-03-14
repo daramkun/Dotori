@@ -49,9 +49,7 @@ public sealed class BuildPlanner
     {
         foreach (var fwPath in _model.FrameworkPaths)
         {
-            var absPath = Path.IsPathRooted(fwPath)
-                ? fwPath
-                : Path.GetFullPath(Path.Combine(_model.ProjectDir, fwPath));
+            var absPath = PathUtils.MakeAbsolute(_model.ProjectDir, fwPath);
 
             if (fwPath.EndsWith(".xcframework", StringComparison.OrdinalIgnoreCase))
             {
@@ -81,6 +79,20 @@ public sealed class BuildPlanner
         }
     }
 
+    // ─── Source/module glob helpers ───────────────────────────────────────────
+
+    private IReadOnlyList<string> ExpandSources() =>
+        GlobExpander.Expand(
+            _model.ProjectDir,
+            _model.Sources.Where(s =>  s.IsInclude).Select(s => s.Glob),
+            _model.Sources.Where(s => !s.IsInclude).Select(s => s.Glob));
+
+    private IReadOnlyList<string> ExpandModules() =>
+        GlobExpander.Expand(
+            _model.ProjectDir,
+            _model.Modules.Where(s =>  s.IsInclude).Select(s => s.Glob),
+            _model.Modules.Where(s => !s.IsInclude).Select(s => s.Glob));
+
     // ─── Compile jobs ─────────────────────────────────────────────────────────
 
     /// <summary>
@@ -98,15 +110,8 @@ public sealed class BuildPlanner
         bool                noUnity = false,
         IReadOnlyDictionary<string, string>? bmiPaths = null)
     {
-        // Expand source globs
-        var includes = _model.Sources.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var excludes = _model.Sources.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var allSources = GlobExpander.Expand(_model.ProjectDir, includes, excludes);
-
-        // Expand module globs
-        var modIncludes = _model.Modules.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var modExcludes = _model.Modules.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var moduleSources = GlobExpander.Expand(_model.ProjectDir, modIncludes, modExcludes);
+        var allSources    = ExpandSources();
+        var moduleSources = ExpandModules();
 
         List<string> filesToCompile;
 
@@ -245,9 +250,7 @@ public sealed class BuildPlanner
         string? compilerPathOverride = null,
         CancellationToken ct = default)
     {
-        var modIncludes = _model.Modules.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var modExcludes = _model.Modules.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var moduleFiles = GlobExpander.Expand(_model.ProjectDir, modIncludes, modExcludes);
+        var moduleFiles = ExpandModules();
 
         if (moduleFiles.Count == 0) return Array.Empty<CompileJob>();
 
@@ -417,27 +420,14 @@ public sealed class BuildPlanner
 
     private bool IsInSources(string targetFile)
     {
-        var includes = _model.Sources.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var excludes = _model.Sources.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var allSources = GlobExpander.Expand(_model.ProjectDir, includes, excludes);
-
-        var modIncludes = _model.Modules.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var modExcludes = _model.Modules.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var moduleSources = GlobExpander.Expand(_model.ProjectDir, modIncludes, modExcludes);
-
-        return allSources.Concat(moduleSources)
+        return ExpandSources().Concat(ExpandModules())
             .Any(f => string.Equals(f, targetFile, StringComparison.OrdinalIgnoreCase));
     }
 
     private string? FindUnityBatchForFile(string targetFile)
     {
-        var includes = _model.Sources.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var excludes = _model.Sources.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var allSources = GlobExpander.Expand(_model.ProjectDir, includes, excludes);
-
-        var modIncludes = _model.Modules.Where(s =>  s.IsInclude).Select(s => s.Glob).ToList();
-        var modExcludes = _model.Modules.Where(s => !s.IsInclude).Select(s => s.Glob).ToList();
-        var moduleSources = GlobExpander.Expand(_model.ProjectDir, modIncludes, modExcludes);
+        var allSources    = ExpandSources();
+        var moduleSources = ExpandModules();
 
         var unityDir  = Path.Combine(_model.ProjectDir, ".dotori-cache", "unity");
         var exclude   = _model.UnityBuild!.Exclude;
@@ -519,9 +509,7 @@ public sealed class BuildPlanner
 
         foreach (var rcPath in _model.Resources)
         {
-            var absRc = Path.IsPathRooted(rcPath)
-                ? rcPath
-                : Path.GetFullPath(Path.Combine(_model.ProjectDir, rcPath));
+            var absRc = PathUtils.MakeAbsolute(_model.ProjectDir, rcPath);
 
             if (!File.Exists(absRc))
             {
@@ -536,12 +524,7 @@ public sealed class BuildPlanner
 
             // Pass project include paths so .rc files can use #include
             foreach (var h in _model.Headers)
-            {
-                var absPath = Path.IsPathRooted(h.Path)
-                    ? h.Path
-                    : Path.GetFullPath(Path.Combine(_model.ProjectDir, h.Path));
-                args.Add($"/I\"{absPath}\"");
-            }
+                args.Add($"/I\"{PathUtils.MakeAbsolute(_model.ProjectDir, h.Path)}\"");
 
             // Pass defines (rc.exe supports /D like cl.exe)
             foreach (var d in _model.Defines)
@@ -580,9 +563,7 @@ public sealed class BuildPlanner
             return true;
         }
 
-        var absManifest = Path.IsPathRooted(_model.Manifest)
-            ? _model.Manifest
-            : Path.GetFullPath(Path.Combine(_model.ProjectDir, _model.Manifest));
+        var absManifest = PathUtils.MakeAbsolute(_model.ProjectDir, _model.Manifest);
 
         if (!File.Exists(absManifest))
         {
@@ -664,9 +645,7 @@ public sealed class BuildPlanner
     {
         if (destDir is null || !File.Exists(sourceFile)) return;
 
-        var absDestDir = Path.IsPathRooted(destDir)
-            ? destDir
-            : Path.Combine(_model.ProjectDir, destDir);
+        var absDestDir = PathUtils.MakeAbsolute(_model.ProjectDir, destDir);
         Directory.CreateDirectory(absDestDir);
 
         var dest = Path.Combine(absDestDir, Path.GetFileName(sourceFile));
@@ -685,9 +664,7 @@ public sealed class BuildPlanner
         var dsymBundle = linkedFile + ".dSYM";
         if (!Directory.Exists(dsymBundle)) return;
 
-        var absDestDir = Path.IsPathRooted(_model.Output.Symbols)
-            ? _model.Output.Symbols
-            : Path.Combine(_model.ProjectDir, _model.Output.Symbols);
+        var absDestDir = PathUtils.MakeAbsolute(_model.ProjectDir, _model.Output.Symbols);
         Directory.CreateDirectory(absDestDir);
 
         CopyDirectoryRecursive(dsymBundle, Path.Combine(absDestDir, Path.GetFileName(dsymBundle)));

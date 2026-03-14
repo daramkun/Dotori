@@ -1,0 +1,17 @@
+namespace Dotori.Core.Build;
+
+/// <summary>
+/// Shared path helper utilities used by compiler drivers and the build planner.
+/// </summary>
+internal static class PathUtils
+{
+    /// <summary>
+    /// Returns <paramref name="path"/> as an absolute path.
+    /// If the path is already rooted, it is returned as-is.
+    /// Otherwise it is resolved relative to <paramref name="basePath"/>.
+    /// </summary>
+    public static string MakeAbsolute(string basePath, string path) =>
+        Path.IsPathRooted(path)
+            ? path
+            : Path.GetFullPath(Path.Combine(basePath, path));
+}
