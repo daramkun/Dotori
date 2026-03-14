@@ -1,0 +1,17 @@
+project MyPkg {
+    type = static-library
+    std  = c++23
+
+    sources { include "src/**/*.cpp" }
+
+    headers {
+        public  "include/"
+        private "src/"
+    }
+}
+
+package {
+    name    = "mypkg"
+    version = "1.0.0"
+    license = "MIT"
+}

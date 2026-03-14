@@ -16,6 +16,18 @@ public static class GitFetcher
             ".dotori", "packages");
 
     /// <summary>
+    /// Get the local cache directory for a package if already fetched, otherwise null.
+    /// </summary>
+    public static string? GetCacheDir(string name, string tagOrCommit)
+    {
+        var cacheDir = Path.Combine(CacheRoot, name, SanitizeVersion(tagOrCommit));
+        if (Directory.Exists(Path.Combine(cacheDir, ".git")) ||
+            (Directory.Exists(cacheDir) && Directory.GetFiles(cacheDir).Length > 0))
+            return cacheDir;
+        return null;
+    }
+
+    /// <summary>
     /// Fetch (or use cached) a git dependency.
     /// </summary>
     /// <param name="name">Package name.</param>

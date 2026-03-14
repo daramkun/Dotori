@@ -64,8 +64,11 @@ internal static class BuildCommandFactory
             var paths = BuildContext.ResolveProjectPaths(projectArg, buildAll);
             if (paths.Count == 0) return 1;
 
-            // Build DAG
-            var dag = BuildContext.BuildDag(paths);
+            // Resolve and fetch git dependencies, then include them in the DAG
+            var gitPackageMap = await BuildContext.ResolveAndFetchGitPackagesAsync(paths, ct);
+
+            // Build DAG (includes git package nodes when their .dotori is found)
+            var dag = BuildContext.BuildDag(paths, gitPackageMap);
             if (dag is null) return 1;
 
             // Get build order

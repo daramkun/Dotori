@@ -3,6 +3,7 @@ using Dotori.Core.Location;
 using Dotori.Core.Model;
 using Dotori.Core.Parsing;
 using Dotori.Core.Toolchain;
+using Dotori.PackageManager;
 
 namespace Dotori.Cli;
 
@@ -50,11 +51,12 @@ internal static class BuildContext
     /// Returns null on error.
     /// </summary>
     internal static IReadOnlyDictionary<string, ProjectNode>? BuildDag(
-        IReadOnlyList<string> rootPaths)
+        IReadOnlyList<string> rootPaths,
+        IReadOnlyDictionary<string, string>? gitPackageMap = null)
     {
         try
         {
-            return ProjectDagBuilder.Build(rootPaths);
+            return ProjectDagBuilder.Build(rootPaths, gitPackageMap);
         }
         catch (CircularDependencyException ex)
         {
@@ -62,6 +64,93 @@ internal static class BuildContext
             return null;
         }
     }
+
+    /// <summary>
+    /// Resolve git dependencies from lock files, fetch them if needed,
+    /// and return a mapping of package name → local .dotori path.
+    /// Packages without a .dotori file (header-only or non-dotori) are skipped.
+    /// </summary>
+    internal static async Task<IReadOnlyDictionary<string, string>> ResolveAndFetchGitPackagesAsync(
+        IReadOnlyList<string> rootPaths,
+        CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var rootPath in rootPaths)
+        {
+            var projectDir = Path.GetDirectoryName(rootPath)!;
+
+            DotoriFile file;
+            try { file = DotoriParser.ParseFile(rootPath); }
+            catch { continue; }
+            if (file.Project is null) continue;
+
+            // Resolve dependencies (updates lock file if git deps present)
+            var existingLock = LockManager.Load(projectDir);
+            LockFile lockFile;
+            if (HasGitOrVersionDependencies(file.Project))
+            {
+                try
+                {
+                    lockFile = await DependencyResolver.ResolveAsync(file.Project, existingLock, ct);
+                    LockManager.Save(lockFile, projectDir);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Warning: dependency resolution failed for '{rootPath}': {ex.Message}");
+                    lockFile = existingLock;
+                }
+            }
+            else
+            {
+                lockFile = existingLock;
+            }
+
+            // Fetch each git package and locate its .dotori file
+            foreach (var entry in lockFile.Packages)
+            {
+                if (result.ContainsKey(entry.Name)) continue;
+                if (!entry.Source.StartsWith("git+")) continue;
+
+                // Parse "git+<url>#<tagOrCommit>"
+                var src = entry.Source["git+".Length..];
+                var hashIdx = src.LastIndexOf('#');
+                if (hashIdx < 0) continue;
+
+                var gitUrl     = src[..hashIdx];
+                var tagOrCommit = src[(hashIdx + 1)..];
+
+                string localDir;
+                try
+                {
+                    Console.WriteLine($"  Fetching {entry.Name} ({tagOrCommit})...");
+                    localDir = await GitFetcher.FetchAsync(entry.Name, gitUrl, tagOrCommit, ct);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Warning: Failed to fetch '{entry.Name}': {ex.Message}");
+                    continue;
+                }
+
+                // Find top-level .dotori file; skip if absent (header-only/non-dotori package)
+                var dotoriFile = Directory
+                    .GetFiles(localDir, ".dotori", SearchOption.TopDirectoryOnly)
+                    .FirstOrDefault();
+                if (dotoriFile is null) continue;
+
+                result[entry.Name] = Path.GetFullPath(dotoriFile);
+            }
+        }
+
+        return result;
+    }
+
+    private static bool HasGitOrVersionDependencies(ProjectDecl project) =>
+        project.Items
+            .OfType<DependenciesBlock>()
+            .SelectMany(b => b.Items)
+            .Any(i => (i.Value is ComplexDependency d && d.Git is not null) ||
+                       i.Value is VersionDependency);
 
     /// <summary>
     /// Determine the build target ID from CLI options and host environment.

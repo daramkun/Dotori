@@ -1,0 +1,12 @@
+project GitDepApp {
+    type = executable
+    std  = c++23
+
+    headers {
+        private "src/"
+    }
+
+    dependencies {
+        mypkg = { git = "https://example.com/mypkg", tag = "v1.0.0" }
+    }
+}
