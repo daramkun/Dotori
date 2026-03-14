@@ -73,10 +73,15 @@ public sealed partial class BuildPlanner
         return _toolchain.LinkerPath;
     }
 
-    private static string FindAr()
+    private string FindAr()
     {
-        // Try llvm-ar first (alongside clang), then plain ar
-        foreach (var candidate in new[] { "llvm-ar", "ar" })
+        // For MinGW cross-compilation, prefer the prefixed archiver (e.g. x86_64-w64-mingw32-ar).
+        // Fall back to llvm-ar or plain ar.
+        var candidates = _toolchain.IsMinGW
+            ? new[] { $"{_toolchain.TargetTriple}-ar", "llvm-ar", "ar" }
+            : new[] { "llvm-ar", "ar" };
+
+        foreach (var candidate in candidates)
         {
             foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
             {
@@ -97,12 +102,15 @@ public sealed partial class BuildPlanner
         bool isMacos   = _targetId.StartsWith("macos",   StringComparison.OrdinalIgnoreCase);
         bool isWasm    = _targetId.StartsWith("wasm",    StringComparison.OrdinalIgnoreCase);
 
+        // MinGW static libraries use .a convention (not .lib), matching Unix ar output.
+        bool isMsvcWindows = isWindows && !_toolchain.IsMinGW;
+
         return _model.Type switch
         {
             ProjectType.Executable     => isWindows ? $"{_model.Name}.exe"
                                         : isWasm    ? $"{_model.Name}.wasm"
                                         : _model.Name,
-            ProjectType.StaticLibrary  => isWindows ? $"{_model.Name}.lib"
+            ProjectType.StaticLibrary  => isMsvcWindows ? $"{_model.Name}.lib"
                                         : $"lib{_model.Name}.a",
             ProjectType.SharedLibrary  => isWindows ? $"{_model.Name}.dll"
                                         : isMacos   ? $"lib{_model.Name}.dylib"

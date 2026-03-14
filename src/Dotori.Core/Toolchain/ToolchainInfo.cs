@@ -21,6 +21,23 @@ public sealed class ToolchainInfo
 
     /// <summary>Optional: Apple-specific SDK path.</summary>
     public string? AppleSdk             { get; init; }
+
+    /// <summary>
+    /// True when this is a clang-cl invocation (Kind == Msvc but compiler is clang-cl.exe).
+    /// clang-cl requires explicit Windows SDK include paths via -imsvc.
+    /// </summary>
+    public bool IsClangCl =>
+        Kind == CompilerKind.Msvc &&
+        Path.GetFileNameWithoutExtension(CompilerPath)
+            .Equals("clang-cl", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when targeting a MinGW ABI (x86_64-w64-mingw32 etc.).
+    /// Used for cross-compilation to Windows from macOS/Linux.
+    /// </summary>
+    public bool IsMinGW =>
+        Kind == CompilerKind.Clang &&
+        TargetTriple.Contains("mingw", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>MSVC-specific compiler and linker paths.</summary>

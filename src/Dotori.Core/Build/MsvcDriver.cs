@@ -71,6 +71,20 @@ public static class MsvcDriver
         foreach (var d in model.Defines)
             flags.Add($"/D{d}");
 
+        // clang-cl: Windows SDK headers must be passed explicitly via -imsvc.
+        // cl.exe resolves them automatically through its built-in install knowledge.
+        if (toolchain.IsClangCl && toolchain.Msvc is { } msvc)
+        {
+            flags.Add($"-imsvc\"{msvc.VcToolsDir}\\include\"");
+            if (!string.IsNullOrEmpty(msvc.WinSdkDir))
+            {
+                var sdkInc = Path.Combine(msvc.WinSdkDir, "Include", msvc.WinSdkVer);
+                flags.Add($"-imsvc\"{Path.Combine(sdkInc, "ucrt")}\"");
+                flags.Add($"-imsvc\"{Path.Combine(sdkInc, "um")}\"");
+                flags.Add($"-imsvc\"{Path.Combine(sdkInc, "shared")}\"");
+            }
+        }
+
         // Include directories (resolve relative to project root)
         foreach (var h in model.Headers)
             flags.Add($"/I\"{PathUtils.MakeAbsolute(model.ProjectDir, h.Path)}\"");
