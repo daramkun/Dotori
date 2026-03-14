@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Parsing;
 
 namespace Dotori.Core.Location;
@@ -137,7 +138,7 @@ public static class ProjectLocator
     private static bool ShouldSkipDirectory(string name) =>
         name.StartsWith('.') ||
         name is "bin" or "obj" or "node_modules" or
-                "build" or "out" or ".dotori-cache";
+                "build" or "out" or DotoriConstants.CacheDir;
 
     /// <summary>
     /// Find the git repository root by walking up looking for a .git directory.

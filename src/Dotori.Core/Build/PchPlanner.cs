@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Model;
 using Dotori.Core.Toolchain;
 
@@ -90,7 +91,7 @@ public static class PchPlanner
         string pchHeader,
         string? pchSource)
     {
-        var pchDir  = Path.Combine(model.ProjectDir, ".dotori-cache", "pch");
+        var pchDir  = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir, DotoriConstants.PchSubDir);
         Directory.CreateDirectory(pchDir);
 
         var pchFile = Path.Combine(pchDir, Path.GetFileName(pchHeader) + ".pch");
@@ -143,7 +144,7 @@ public static class PchPlanner
         IncrementalChecker? checker,
         string pchHeader)
     {
-        var pchDir  = Path.Combine(model.ProjectDir, ".dotori-cache", "pch");
+        var pchDir  = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir, DotoriConstants.PchSubDir);
         Directory.CreateDirectory(pchDir);
 
         var pchFile = Path.Combine(pchDir, Path.GetFileName(pchHeader) + ".pch");

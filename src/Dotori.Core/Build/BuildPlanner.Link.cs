@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Linker;
 using Dotori.Core.Model;
 using Dotori.Core.Parsing;
@@ -18,8 +19,8 @@ public sealed partial class BuildPlanner
     {
         if (_model.Type == ProjectType.HeaderOnly) return null;
 
-        var outDir = Path.Combine(_model.ProjectDir, ".dotori-cache",
-            "bin", $"{_targetId}-{_config.ToLower()}");
+        var outDir = Path.Combine(_model.ProjectDir, DotoriConstants.CacheDir,
+            DotoriConstants.BinSubDir, $"{_targetId}-{_config.ToLower()}");
         Directory.CreateDirectory(outDir);
 
         var outName = GetOutputName();

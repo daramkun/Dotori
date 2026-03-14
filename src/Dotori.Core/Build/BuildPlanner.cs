@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Linker;
 using Dotori.Core.Model;
 using Dotori.Core.Parsing;
@@ -38,8 +39,8 @@ public sealed partial class BuildPlanner
 
         // obj output dir: .dotori-cache/obj/<target>-<config>/
         _cacheDir = Path.Combine(
-            model.ProjectDir, ".dotori-cache",
-            "obj", $"{targetId}-{config.ToLower()}");
+            model.ProjectDir, DotoriConstants.CacheDir,
+            DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}");
         Directory.CreateDirectory(_cacheDir);
 
         // Resolve framework-paths (.framework / .xcframework) into search dirs + names
@@ -123,9 +124,9 @@ public sealed partial class BuildPlanner
 
         if (!noUnity && _model.UnityBuild?.Enabled == true)
         {
-            var unityDir  = Path.Combine(_model.ProjectDir, ".dotori-cache", "unity");
+            var unityDir  = Path.Combine(_model.ProjectDir, DotoriConstants.CacheDir, DotoriConstants.UnitySubDir);
             var exclude   = _model.UnityBuild.Exclude;
-            int batchSize = _model.UnityBuild.BatchSize > 0 ? _model.UnityBuild.BatchSize : 8;
+            int batchSize = _model.UnityBuild.BatchSize > 0 ? _model.UnityBuild.BatchSize : DotoriConstants.DefaultUnityBatchSize;
 
             var (unityFiles, nonUnity) = UnityBatcher.CreateBatches(
                 allSources, moduleSources, exclude, batchSize, unityDir);
@@ -290,7 +291,7 @@ public sealed partial class BuildPlanner
         if (!_model.ModuleExportMap) return;
         if (moduleJobs.Count == 0) return;
 
-        var bmiDir = Path.Combine(_cacheDir, "bmi");
+        var bmiDir = Path.Combine(_cacheDir, DotoriConstants.BmiSubDir);
         ModuleMapWriter.Write(moduleJobs, _targetId, _config, bmiDir);
     }
 
@@ -353,9 +354,9 @@ public sealed partial class BuildPlanner
         var allSources    = ExpandSources();
         var moduleSources = ExpandModules();
 
-        var unityDir  = Path.Combine(_model.ProjectDir, ".dotori-cache", "unity");
+        var unityDir  = Path.Combine(_model.ProjectDir, DotoriConstants.CacheDir, DotoriConstants.UnitySubDir);
         var exclude   = _model.UnityBuild!.Exclude;
-        int batchSize = _model.UnityBuild.BatchSize > 0 ? _model.UnityBuild.BatchSize : 8;
+        int batchSize = _model.UnityBuild.BatchSize > 0 ? _model.UnityBuild.BatchSize : DotoriConstants.DefaultUnityBatchSize;
 
         var (unityFiles, _) = UnityBatcher.CreateBatches(
             allSources, moduleSources, exclude, batchSize, unityDir);
@@ -393,7 +394,7 @@ public sealed partial class BuildPlanner
 
     private CompileJob MakeMsvcModuleJob(string sourceFile, IReadOnlyList<string> compileFlags)
     {
-        var bmiDir = Path.Combine(_model.ProjectDir, ".dotori-cache", "bmi");
+        var bmiDir = Path.Combine(_model.ProjectDir, DotoriConstants.CacheDir, DotoriConstants.BmiSubDir);
         Directory.CreateDirectory(bmiDir);
 
         var bmiFile = Path.Combine(bmiDir,

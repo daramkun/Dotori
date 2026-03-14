@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Diagnostics;
+using Dotori.Core;
 using Dotori.Core.Build;
 using Dotori.Core.Executor;
 using Dotori.Core.Graph;
@@ -65,8 +66,8 @@ internal static class RunCommandFactory
                     using var checker = new IncrementalChecker(model.ProjectDir);
                     var planner = new BuildPlanner(model, toolchain, config, targetId);
 
-                    var linkOutDir = Path.Combine(model.ProjectDir, ".dotori-cache",
-                        "bin", $"{targetId}-{config.ToLower()}");
+                    var linkOutDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+                        DotoriConstants.BinSubDir, $"{targetId}-{config.ToLower()}");
 
                     // pre-build scripts
                     if (model.PreBuildCommands.Count > 0)
@@ -151,12 +152,12 @@ internal static class RunCommandFactory
                             .Concat(modulePcmFiles)
                             .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
                             .ToList()
-                        : Directory.Exists(Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
-                              $"{targetId}-{config.ToLower()}"))
-                            ? Directory.GetFiles(Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
-                              $"{targetId}-{config.ToLower()}"), "*.o")
+                        : Directory.Exists(Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+                              DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}"))
+                            ? Directory.GetFiles(Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+                              DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}"), "*.o")
                               .Concat(Directory.GetFiles(Path.Combine(model.ProjectDir,
-                                  ".dotori-cache", "obj", $"{targetId}-{config.ToLower()}"), "*.obj"))
+                                  DotoriConstants.CacheDir, DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}"), "*.obj"))
                               .Concat(modulePcmFiles)
                               .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
                               .ToList()
