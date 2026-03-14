@@ -244,51 +244,30 @@ public sealed class Parser
         return list;
     }
 
-    private DefinesBlock ParseDefinesBlock(SourceLocation loc)
+    /// <summary>
+    /// Consumes the current keyword token then populates <paramref name="block"/>.Values
+    /// from a <c>{ string* }</c> list.  Avoids repeating the same 3-line body for
+    /// DefinesBlock, LinksBlock, FrameworksBlock, CompileFlagsBlock, LinkFlagsBlock.
+    /// </summary>
+    private T ParseStringValuesBlock<T>(T block)
+        where T : ProjectItem, IStringValuesBlock
     {
-        Consume(); // "defines"
-        var block = new DefinesBlock { Location = loc };
+        Consume(); // keyword token
         block.Values.AddRange(ParseStringList());
         return block;
     }
 
-    private LinksBlock ParseLinksBlock(SourceLocation loc)
-    {
-        Consume(); // "links"
-        var block = new LinksBlock { Location = loc };
-        block.Values.AddRange(ParseStringList());
-        return block;
-    }
-
-    private FrameworksBlock ParseFrameworksBlock(SourceLocation loc)
-    {
-        Consume(); // "frameworks"
-        var block = new FrameworksBlock { Location = loc };
-        block.Values.AddRange(ParseStringList());
-        return block;
-    }
+    private DefinesBlock      ParseDefinesBlock     (SourceLocation loc) => ParseStringValuesBlock(new DefinesBlock      { Location = loc });
+    private LinksBlock        ParseLinksBlock       (SourceLocation loc) => ParseStringValuesBlock(new LinksBlock        { Location = loc });
+    private FrameworksBlock   ParseFrameworksBlock  (SourceLocation loc) => ParseStringValuesBlock(new FrameworksBlock   { Location = loc });
+    private CompileFlagsBlock ParseCompileFlagsBlock(SourceLocation loc) => ParseStringValuesBlock(new CompileFlagsBlock { Location = loc });
+    private LinkFlagsBlock    ParseLinkFlagsBlock   (SourceLocation loc) => ParseStringValuesBlock(new LinkFlagsBlock    { Location = loc });
 
     private FrameworkPathsBlock ParseFrameworkPathsBlock(SourceLocation loc)
     {
         Consume(); // "framework-paths"
         var block = new FrameworkPathsBlock { Location = loc };
         block.Paths.AddRange(ParseStringList());
-        return block;
-    }
-
-    private CompileFlagsBlock ParseCompileFlagsBlock(SourceLocation loc)
-    {
-        Consume(); // "compile-flags"
-        var block = new CompileFlagsBlock { Location = loc };
-        block.Values.AddRange(ParseStringList());
-        return block;
-    }
-
-    private LinkFlagsBlock ParseLinkFlagsBlock(SourceLocation loc)
-    {
-        Consume(); // "link-flags"
-        var block = new LinkFlagsBlock { Location = loc };
-        block.Values.AddRange(ParseStringList());
         return block;
     }
 

@@ -73,12 +73,7 @@ public static class MsvcDriver
 
         // Include directories (resolve relative to project root)
         foreach (var h in model.Headers)
-        {
-            var absPath = Path.IsPathRooted(h.Path)
-                ? h.Path
-                : Path.GetFullPath(Path.Combine(model.ProjectDir, h.Path));
-            flags.Add($"/I\"{absPath}\"");
-        }
+            flags.Add($"/I\"{PathUtils.MakeAbsolute(model.ProjectDir, h.Path)}\"");
 
         // Output dir for .obj
         flags.Add($"/Fo\"{objDir}\\\"");

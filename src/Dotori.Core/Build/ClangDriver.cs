@@ -89,12 +89,7 @@ public static class ClangDriver
 
         // Include directories (resolve relative to project root)
         foreach (var h in model.Headers)
-        {
-            var absPath = Path.IsPathRooted(h.Path)
-                ? h.Path
-                : Path.GetFullPath(Path.Combine(model.ProjectDir, h.Path));
-            flags.Add($"-I\"{absPath}\"");
-        }
+            flags.Add($"-I\"{PathUtils.MakeAbsolute(model.ProjectDir, h.Path)}\"");
 
         // Custom framework search paths (-F) from framework-paths / xcframework resolution
         foreach (var fp in model.FrameworkSearchPaths)
@@ -237,18 +232,8 @@ public static class ClangDriver
 
     /// <summary>Generate a link job.</summary>
     public static LinkJob MakeLinkJob(
-        IEnumerable<string> objFiles,
-        string outputFile,
-        IReadOnlyList<string> linkFlags)
-    {
-        var args = new List<string>(linkFlags);
-        foreach (var obj in objFiles) args.Add($"\"{obj}\"");
-
-        return new LinkJob
-        {
-            InputFiles = objFiles.ToArray(),
-            OutputFile = outputFile,
-            Args       = args.ToArray(),
-        };
-    }
+        IEnumerable<string>   objFiles,
+        string                outputFile,
+        IReadOnlyList<string> linkFlags) =>
+        LinkJobFactory.Create(objFiles, outputFile, linkFlags);
 }
