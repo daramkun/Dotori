@@ -177,13 +177,13 @@ public sealed class EnvExpanderTests
     [TestMethod]
     public void Flatten_EnvVar_InLinkFlags_Expanded()
     {
-        Environment.SetEnvironmentVariable("DOTORI_TEST_SDK", "/opt/mysdk");
+        Environment.SetEnvironmentVariable("DOTORI_TEST_LINK_SDK", "/opt/mysdk");
         try
         {
             var model = FlattenSource("""
                 project MyApp {
                     type = executable
-                    link-flags { "-L${DOTORI_TEST_SDK}/lib" }
+                    link-flags { "-L${DOTORI_TEST_LINK_SDK}/lib" }
                 }
                 """);
 
@@ -191,7 +191,7 @@ public sealed class EnvExpanderTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("DOTORI_TEST_SDK", null);
+            Environment.SetEnvironmentVariable("DOTORI_TEST_LINK_SDK", null);
         }
     }
 
