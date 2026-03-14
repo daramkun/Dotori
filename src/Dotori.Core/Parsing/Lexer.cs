@@ -183,13 +183,10 @@ public sealed class Lexer
 
     private string ReadInteger(SourceLocation loc)
     {
-        var sb = new System.Text.StringBuilder();
+        var start = _pos;
         while (_pos < _source.Length && char.IsDigit(Current))
-        {
-            sb.Append(Current);
             Advance();
-        }
-        return sb.ToString();
+        return _source.Substring(start, _pos - start);
     }
 
     // Ident characters: letters, digits, underscore, hyphen, +
@@ -202,12 +199,9 @@ public sealed class Lexer
 
     private string ReadIdent()
     {
-        var sb = new System.Text.StringBuilder();
+        var start = _pos;
         while (_pos < _source.Length && IsIdentContinue(Current))
-        {
-            sb.Append(Current);
             Advance();
-        }
-        return sb.ToString();
+        return _source.Substring(start, _pos - start);
     }
 }
