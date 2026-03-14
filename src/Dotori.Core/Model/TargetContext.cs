@@ -14,8 +14,16 @@ public sealed class TargetContext
     public string? Stdlib           { get; init; }   // libc++, libstdc++
     public string? WasmBackend      { get; init; }   // emscripten, bare (WASM only)
 
-    /// <summary>Returns all active atom names for condition matching.</summary>
-    public IReadOnlySet<string> ActiveAtoms()
+    private IReadOnlySet<string>? _cachedAtoms;
+
+    /// <summary>
+    /// Returns all active atom names for condition matching.
+    /// The result is lazily computed and cached on first call.
+    /// </summary>
+    public IReadOnlySet<string> ActiveAtoms() =>
+        _cachedAtoms ??= ComputeActiveAtoms();
+
+    private IReadOnlySet<string> ComputeActiveAtoms()
     {
         var atoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -24,8 +32,8 @@ public sealed class TargetContext
             Compiler,
             Runtime,
         };
-        if (Libc    != null) atoms.Add(Libc);
-        if (Stdlib  != null) atoms.Add(NormalizeStdlib(Stdlib));
+        if (Libc        != null) atoms.Add(Libc);
+        if (Stdlib      != null) atoms.Add(NormalizeStdlib(Stdlib));
         if (WasmBackend != null) atoms.Add(WasmBackend);
         return atoms;
     }
