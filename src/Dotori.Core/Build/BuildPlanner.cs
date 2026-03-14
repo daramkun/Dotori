@@ -10,8 +10,14 @@ namespace Dotori.Core.Build;
 /// Given a flat project model and toolchain, produces all compile + link jobs.
 /// Supports PCH, C++ Modules (with ModuleScanner/ModuleSorter), Unity Build,
 /// incremental build, and the Apple/LLD linker selection.
+///
+/// Split into partial files:
+///   BuildPlanner.cs          — constructor, glob helpers, compile/PCH/module jobs
+///   BuildPlanner.Link.cs     — link job, linker selection, output name
+///   BuildPlanner.Artifacts.cs — artifact copy (output { } block)
+///   BuildPlanner.Windows.cs  — Windows RC / manifest handling
 /// </summary>
-public sealed class BuildPlanner
+public sealed partial class BuildPlanner
 {
     private readonly FlatProjectModel _model;
     private readonly ToolchainInfo    _toolchain;
@@ -270,8 +276,6 @@ public sealed class BuildPlanner
         // Build BMI compile jobs
         var jobs = ModuleSorter.BuildModuleJobs(sorted, _cacheDir, _toolchain.Kind, compileFlags);
 
-        // Write module-map.json if export-map is enabled (note: jobs not yet compiled,
-        // so WriteModuleMap is called after successful compilation in BuildCommand)
         return jobs;
     }
 
@@ -288,86 +292,6 @@ public sealed class BuildPlanner
 
         var bmiDir = Path.Combine(_cacheDir, "bmi");
         ModuleMapWriter.Write(moduleJobs, _targetId, _config, bmiDir);
-    }
-
-    // ─── Link job ─────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Plan the link job (returns null for header-only projects).
-    /// Uses the appropriate linker: MsvcLinker, AppleLinker, LldLinker, or EmscriptenDriver.
-    /// For static libraries on non-MSVC targets, uses 'ar rcs'.
-    /// </summary>
-    public LinkJob? PlanLinkJob(IEnumerable<string> objFiles)
-    {
-        if (_model.Type == ProjectType.HeaderOnly) return null;
-
-        var outDir = Path.Combine(_model.ProjectDir, ".dotori-cache",
-            "bin", $"{_targetId}-{_config.ToLower()}");
-        Directory.CreateDirectory(outDir);
-
-        var outName = GetOutputName();
-        var outFile = Path.Combine(outDir, outName);
-
-        // Static library on non-MSVC: use ar rcs
-        if (_model.Type == ProjectType.StaticLibrary && _toolchain.Kind != CompilerKind.Msvc)
-        {
-            var args = new List<string> { "rcs", $"\"{outFile}\"" };
-            foreach (var obj in objFiles) args.Add($"\"{obj}\"");
-            return new LinkJob
-            {
-                InputFiles = objFiles.ToArray(),
-                OutputFile = outFile,
-                Args       = args.ToArray(),
-            };
-        }
-
-        if (_toolchain.Kind == CompilerKind.Msvc)
-        {
-            var flags = MsvcLinker.LinkFlags(_model, _toolchain, _config, outFile);
-            return MsvcLinker.MakeLinkJob(objFiles, outFile, flags);
-        }
-        else if (_toolchain.Kind == CompilerKind.Emscripten)
-        {
-            var flags = EmscriptenDriver.LinkFlags(_model, outFile);
-            return EmscriptenDriver.MakeLinkJob(objFiles, outFile, flags);
-        }
-        else if (AppleLinker.IsAppleTarget(_toolchain))
-        {
-            var flags = AppleLinker.LinkFlags(_model, _toolchain, outFile);
-            return AppleLinker.MakeLinkJob(objFiles, outFile, flags);
-        }
-        else
-        {
-            // Linux, Android, WASM-bare: use LLD via clang++
-            var flags = LldLinker.LinkFlags(_model, _toolchain, outFile);
-            return LldLinker.MakeLinkJob(objFiles, outFile, flags);
-        }
-    }
-
-    /// <summary>
-    /// Returns the correct linker path for this project's link step.
-    /// Static libraries on non-MSVC use 'ar'; others use the toolchain linker.
-    /// </summary>
-    public string GetLinkerPath()
-    {
-        if (_model.Type == ProjectType.StaticLibrary && _toolchain.Kind != CompilerKind.Msvc)
-            return FindAr();
-        return _toolchain.LinkerPath;
-    }
-
-    private static string FindAr()
-    {
-        // Try llvm-ar first (alongside clang), then plain ar
-        foreach (var candidate in new[] { "llvm-ar", "ar" })
-        {
-            foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
-            {
-                var full = Path.Combine(dir, candidate);
-                if (File.Exists(full)) return full;
-                if (OperatingSystem.IsWindows() && File.Exists(full + ".exe")) return full + ".exe";
-            }
-        }
-        return "ar"; // fallback: assume ar is in PATH
     }
 
     // ─── Single-file build support ────────────────────────────────────────────
@@ -488,218 +412,6 @@ public sealed class BuildPlanner
             SourceFile = sourceFile,
             OutputFile = bmiFile,
             Args       = args.ToArray(),
-        };
-    }
-
-    // ─── Windows RC / Manifest ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Plan compile jobs for Windows resource files (.rc → .res via rc.exe).
-    /// Returns an empty list if not on MSVC or if no resources are declared.
-    /// The returned jobs should be executed with rc.exe
-    /// (<see cref="MsvcPaths.RcPath"/>) as the tool path.
-    /// </summary>
-    public IReadOnlyList<CompileJob> PlanRcJobs()
-    {
-        if (_model.Resources.Count == 0)           return [];
-        if (_toolchain.Kind != CompilerKind.Msvc)  return [];
-        if (_toolchain.Msvc?.RcPath is null)       return [];
-
-        var jobs = new List<CompileJob>();
-
-        foreach (var rcPath in _model.Resources)
-        {
-            var absRc = PathUtils.MakeAbsolute(_model.ProjectDir, rcPath);
-
-            if (!File.Exists(absRc))
-            {
-                Console.Error.WriteLine($"Warning: resource file not found, skipping: {absRc}");
-                continue;
-            }
-
-            var resFile = Path.Combine(_cacheDir,
-                Path.GetFileNameWithoutExtension(absRc) + ".res");
-
-            var args = new List<string> { "/nologo" };
-
-            // Pass project include paths so .rc files can use #include
-            foreach (var h in _model.Headers)
-                args.Add($"/I\"{PathUtils.MakeAbsolute(_model.ProjectDir, h.Path)}\"");
-
-            // Pass defines (rc.exe supports /D like cl.exe)
-            foreach (var d in _model.Defines)
-                args.Add($"/D{d}");
-
-            args.Add($"/fo\"{resFile}\"");
-            args.Add($"\"{absRc}\"");
-
-            jobs.Add(new CompileJob
-            {
-                SourceFile = absRc,
-                OutputFile = resFile,
-                Args       = args.ToArray(),
-            });
-        }
-
-        return jobs;
-    }
-
-    /// <summary>
-    /// Embed a .manifest file into the linked binary using mt.exe.
-    /// No-op if no manifest is declared, toolchain is not MSVC, or mt.exe is not found.
-    /// </summary>
-    /// <param name="outputFile">Absolute path to the linked binary (.exe or .dll).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>True on success or when embedding is not applicable.</returns>
-    public async Task<bool> EmbedManifestAsync(string outputFile, CancellationToken ct = default)
-    {
-        if (_model.Manifest is null)                      return true;
-        if (_toolchain.Kind != CompilerKind.Msvc)         return true;
-        if (_model.Type    == ProjectType.StaticLibrary)  return true;
-
-        if (_toolchain.Msvc?.MtPath is not { } mtPath)
-        {
-            Console.Error.WriteLine("Warning: mt.exe not found, skipping manifest embedding.");
-            return true;
-        }
-
-        var absManifest = PathUtils.MakeAbsolute(_model.ProjectDir, _model.Manifest);
-
-        if (!File.Exists(absManifest))
-        {
-            Console.Error.WriteLine($"Warning: manifest file not found, skipping: {absManifest}");
-            return true;
-        }
-
-        // Resource ID: 1 = executable, 2 = DLL
-        var resourceId = _model.Type == ProjectType.SharedLibrary ? "2" : "1";
-        var args = $"-nologo -manifest \"{absManifest}\" -outputresource:\"{outputFile};{resourceId}\"";
-
-        var psi = new System.Diagnostics.ProcessStartInfo(mtPath, args)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            UseShellExecute        = false,
-            CreateNoWindow         = true,
-        };
-
-        using var proc = System.Diagnostics.Process.Start(psi)!;
-        var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
-        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
-        await proc.WaitForExitAsync(ct);
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-        if (!string.IsNullOrWhiteSpace(stdout)) Console.WriteLine(stdout.TrimEnd());
-        if (!string.IsNullOrWhiteSpace(stderr)) Console.Error.WriteLine(stderr.TrimEnd());
-
-        return proc.ExitCode == 0;
-    }
-
-    // ─── Artifact copy ────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Copy the linked artifact(s) to user-specified output directories
-    /// defined in the <c>output { }</c> block of the .dotori file.
-    /// Does nothing if <see cref="FlatProjectModel.Output"/> is null.
-    /// </summary>
-    /// <param name="linkedFile">Absolute path to the primary linked output file.</param>
-    public void CopyArtifacts(string linkedFile)
-    {
-        if (_model.Output is null) return;
-        if (!File.Exists(linkedFile)) return;
-
-        bool isWindows = _targetId.StartsWith("windows", StringComparison.OrdinalIgnoreCase)
-                      || _targetId.StartsWith("uwp",     StringComparison.OrdinalIgnoreCase);
-
-        // Determine which output category the linked file belongs to
-        switch (_model.Type)
-        {
-            case ProjectType.Executable:
-                CopyTo(linkedFile, _model.Output.Binaries);
-                // Windows PDB alongside exe
-                if (isWindows) CopySymbols(linkedFile, ".pdb");
-                break;
-
-            case ProjectType.SharedLibrary:
-                CopyTo(linkedFile, _model.Output.Binaries);
-                // Windows import library: same stem + .lib
-                if (isWindows)
-                {
-                    var importLib = Path.ChangeExtension(linkedFile, ".lib");
-                    CopyTo(importLib, _model.Output.Libraries);
-                    CopySymbols(linkedFile, ".pdb");
-                }
-                // macOS .dSYM bundle
-                if (_targetId.StartsWith("macos", StringComparison.OrdinalIgnoreCase))
-                    CopyDsym(linkedFile);
-                break;
-
-            case ProjectType.StaticLibrary:
-                CopyTo(linkedFile, _model.Output.Libraries);
-                break;
-        }
-    }
-
-    private void CopyTo(string sourceFile, string? destDir)
-    {
-        if (destDir is null || !File.Exists(sourceFile)) return;
-
-        var absDestDir = PathUtils.MakeAbsolute(_model.ProjectDir, destDir);
-        Directory.CreateDirectory(absDestDir);
-
-        var dest = Path.Combine(absDestDir, Path.GetFileName(sourceFile));
-        File.Copy(sourceFile, dest, overwrite: true);
-    }
-
-    private void CopySymbols(string linkedFile, string ext)
-    {
-        var symFile = Path.ChangeExtension(linkedFile, ext);
-        CopyTo(symFile, _model.Output?.Symbols);
-    }
-
-    private void CopyDsym(string linkedFile)
-    {
-        if (_model.Output?.Symbols is null) return;
-        var dsymBundle = linkedFile + ".dSYM";
-        if (!Directory.Exists(dsymBundle)) return;
-
-        var absDestDir = PathUtils.MakeAbsolute(_model.ProjectDir, _model.Output.Symbols);
-        Directory.CreateDirectory(absDestDir);
-
-        CopyDirectoryRecursive(dsymBundle, Path.Combine(absDestDir, Path.GetFileName(dsymBundle)));
-    }
-
-    private static void CopyDirectoryRecursive(string src, string dest)
-    {
-        Directory.CreateDirectory(dest);
-        foreach (var file in Directory.GetFiles(src))
-            File.Copy(file, Path.Combine(dest, Path.GetFileName(file)), overwrite: true);
-        foreach (var dir in Directory.GetDirectories(src))
-            CopyDirectoryRecursive(dir, Path.Combine(dest, Path.GetFileName(dir)));
-    }
-
-    // ─── Output name ──────────────────────────────────────────────────────────
-
-    private string GetOutputName()
-    {
-        bool isWindows = _targetId.StartsWith("windows", StringComparison.OrdinalIgnoreCase)
-                      || _targetId.StartsWith("uwp",     StringComparison.OrdinalIgnoreCase);
-        bool isMacos   = _targetId.StartsWith("macos",   StringComparison.OrdinalIgnoreCase);
-        bool isWasm    = _targetId.StartsWith("wasm",    StringComparison.OrdinalIgnoreCase);
-
-        return _model.Type switch
-        {
-            ProjectType.Executable     => isWindows ? $"{_model.Name}.exe"
-                                        : isWasm    ? $"{_model.Name}.wasm"
-                                        : _model.Name,
-            ProjectType.StaticLibrary  => isWindows ? $"{_model.Name}.lib"
-                                        : $"lib{_model.Name}.a",
-            ProjectType.SharedLibrary  => isWindows ? $"{_model.Name}.dll"
-                                        : isMacos   ? $"lib{_model.Name}.dylib"
-                                        : $"lib{_model.Name}.so",
-            ProjectType.HeaderOnly     => string.Empty,
-            _                          => _model.Name,
         };
     }
 }
