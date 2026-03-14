@@ -1,4 +1,5 @@
 using System.Text;
+using Dotori.Core;
 
 namespace Dotori.PackageManager;
 
@@ -8,12 +9,10 @@ namespace Dotori.PackageManager;
 /// </summary>
 public static class LockManager
 {
-    private const string LockFileName = ".dotori.lock";
-
     /// <summary>Load the lock file from the given project directory. Returns empty if not found.</summary>
     public static LockFile Load(string projectDir)
     {
-        var path = Path.Combine(projectDir, LockFileName);
+        var path = Path.Combine(projectDir, DotoriConstants.LockFileName);
         if (!File.Exists(path)) return new LockFile();
         return Parse(File.ReadAllText(path, Encoding.UTF8));
     }
@@ -21,7 +20,7 @@ public static class LockManager
     /// <summary>Write the lock file to the given project directory.</summary>
     public static void Save(LockFile lockFile, string projectDir)
     {
-        var path = Path.Combine(projectDir, LockFileName);
+        var path = Path.Combine(projectDir, DotoriConstants.LockFileName);
         File.WriteAllText(path, Serialize(lockFile), Encoding.UTF8);
     }
 

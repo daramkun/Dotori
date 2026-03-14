@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Dotori.Core;
 using Dotori.Core.Parsing;
 
 namespace Dotori.Cli.Commands;
@@ -27,7 +28,7 @@ internal static class CleanCommandFactory
                 var projectDir = Path.GetDirectoryName(dotoriPath)!;
 
                 // Remove .dotori-cache/
-                var cacheDir = Path.Combine(projectDir, ".dotori-cache");
+                var cacheDir = Path.Combine(projectDir, DotoriConstants.CacheDir);
                 if (Directory.Exists(cacheDir))
                 {
                     Console.WriteLine($"  Removing {cacheDir}");

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dotori.Core;
 
 namespace Dotori.Core.Build;
 
@@ -20,7 +21,7 @@ public sealed class ModuleMapEntry
 public sealed class ModuleMap
 {
     [JsonPropertyName("version")]
-    public int Version { get; init; } = 1;
+    public int Version { get; init; } = DotoriConstants.ModuleMapFormatVersion;
 
     [JsonPropertyName("target")]
     public required string Target { get; init; }
@@ -80,7 +81,7 @@ public static class ModuleMapWriter
         };
 
         Directory.CreateDirectory(bmiDir);
-        var mapPath = Path.Combine(bmiDir, "module-map.json");
+        var mapPath = Path.Combine(bmiDir, DotoriConstants.ModuleMapFileName);
         var json    = JsonSerializer.Serialize(map, ModuleMapJsonContext.Default.ModuleMap);
         File.WriteAllText(mapPath, json);
     }

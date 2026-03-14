@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Dotori.Core;
 using Dotori.Core.Build;
 using Dotori.Core.Executor;
 using Dotori.Core.Graph;
@@ -110,8 +111,8 @@ internal static class BuildCommandFactory
                         var depLibs = CollectDepLibs(node, builtLibraries);
 
                         // Determine link output dir for env vars
-                        var linkOutDir = Path.Combine(model.ProjectDir, ".dotori-cache",
-                            "bin", $"{targetId}-{config.ToLower()}");
+                        var linkOutDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+                            DotoriConstants.BinSubDir, $"{targetId}-{config.ToLower()}");
 
                         // pre-build scripts
                         if (model.PreBuildCommands.Count > 0)
@@ -168,15 +169,11 @@ internal static class BuildCommandFactory
                                 return 0;
 
                             // Link with existing obj files + this new obj
-                            var existingObjs = Directory.Exists(
-                                Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
-                                             $"{targetId}-{config.ToLower()}"))
-                                ? Directory.GetFiles(
-                                    Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
-                                                 $"{targetId}-{config.ToLower()}"), "*.o")
-                                  .Concat(Directory.GetFiles(
-                                    Path.Combine(model.ProjectDir, ".dotori-cache", "obj",
-                                                 $"{targetId}-{config.ToLower()}"), "*.obj"))
+                            var objCacheDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+                                DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}");
+                            var existingObjs = Directory.Exists(objCacheDir)
+                                ? Directory.GetFiles(objCacheDir, "*.o")
+                                  .Concat(Directory.GetFiles(objCacheDir, "*.obj"))
                                   .ToList()
                                 : new List<string>();
 

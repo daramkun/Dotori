@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dotori.Core;
 
 namespace Dotori.Core.Build;
 
@@ -21,9 +22,9 @@ public sealed class IncrementalChecker : IDisposable
 
     public IncrementalChecker(string projectDir)
     {
-        var cacheDir = Path.Combine(projectDir, ".dotori-cache");
+        var cacheDir = Path.Combine(projectDir, DotoriConstants.CacheDir);
         Directory.CreateDirectory(cacheDir);
-        _dbPath  = Path.Combine(cacheDir, "hashes.db");
+        _dbPath  = Path.Combine(cacheDir, DotoriConstants.HashDbFileName);
         _hashes  = Load(_dbPath);
         _dirty   = false;
     }

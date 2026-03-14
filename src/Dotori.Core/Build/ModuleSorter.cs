@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Toolchain;
 
 namespace Dotori.Core.Build;
@@ -128,7 +129,7 @@ public static class ModuleSorter
         var bmiPaths = new Dictionary<string, string>(StringComparer.Ordinal);
         var jobs     = new List<CompileJob>();
 
-        var bmiDir = Path.Combine(objDir, "bmi");
+        var bmiDir = Path.Combine(objDir, DotoriConstants.BmiSubDir);
         Directory.CreateDirectory(bmiDir);
 
         foreach (var dep in sortedDeps)
