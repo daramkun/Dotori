@@ -164,7 +164,7 @@ public static class ToolchainDetector
     private static ToolchainInfo? DetectLinux(string archPrefix)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return null;
-        var clang = FindInPath("clang++");
+        var clang = FindInPath("clang++") ?? FindBrewLlvm("clang++");
         if (clang is null) return null;
 
         var lld = FindInPath("ld.lld");
@@ -247,7 +247,7 @@ public static class ToolchainDetector
         var sdkPath = RunXcrun("--sdk macosx --show-sdk-path");
 
         // Prefer PATH clang++ (e.g. LLVM from brew/mise) over Apple Clang for better C++23 Modules support
-        var pathClang = FindInPath("clang++");
+        var pathClang = FindInPath("clang++") ?? FindBrewLlvm("clang++");
         if (pathClang is not null)
         {
             return new ToolchainInfo
@@ -309,7 +309,7 @@ public static class ToolchainDetector
 
     private static ToolchainInfo? DetectWasmBare()
     {
-        var clang = FindInPath("clang++");
+        var clang = FindInPath("clang++") ?? FindBrewLlvm("clang++");
         if (clang is null) return null;
 
         return new ToolchainInfo
@@ -435,6 +435,27 @@ public static class ToolchainDetector
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Look for a tool in common Homebrew LLVM installation paths (macOS only).
+    /// Checks Apple Silicon path first, then Intel Mac path.
+    /// </summary>
+    private static string? FindBrewLlvm(string toolName)
+    {
+        var brewPrefixes = new[]
+        {
+            "/opt/homebrew/opt/llvm/bin", // Apple Silicon
+            "/usr/local/opt/llvm/bin",    // Intel Mac
+        };
+
+        foreach (var dir in brewPrefixes)
+        {
+            var candidate = Path.Combine(dir, toolName);
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        return null;
     }
 
     private static string? FindInPath(string name, string? extraDir = null)
