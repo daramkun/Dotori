@@ -1,0 +1,113 @@
+using Dotori.Core.Linker;
+using Dotori.Core.Model;
+using Dotori.Core.Parsing;
+using Dotori.Core.Toolchain;
+
+namespace Dotori.Core.Build;
+
+public sealed partial class BuildPlanner
+{
+    // ─── Link job ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Plan the link job (returns null for header-only projects).
+    /// Uses the appropriate linker: MsvcLinker, AppleLinker, LldLinker, or EmscriptenDriver.
+    /// For static libraries on non-MSVC targets, uses 'ar rcs'.
+    /// </summary>
+    public LinkJob? PlanLinkJob(IEnumerable<string> objFiles)
+    {
+        if (_model.Type == ProjectType.HeaderOnly) return null;
+
+        var outDir = Path.Combine(_model.ProjectDir, ".dotori-cache",
+            "bin", $"{_targetId}-{_config.ToLower()}");
+        Directory.CreateDirectory(outDir);
+
+        var outName = GetOutputName();
+        var outFile = Path.Combine(outDir, outName);
+
+        // Static library on non-MSVC: use ar rcs
+        if (_model.Type == ProjectType.StaticLibrary && _toolchain.Kind != CompilerKind.Msvc)
+        {
+            var args = new List<string> { "rcs", $"\"{outFile}\"" };
+            foreach (var obj in objFiles) args.Add($"\"{obj}\"");
+            return new LinkJob
+            {
+                InputFiles = objFiles.ToArray(),
+                OutputFile = outFile,
+                Args       = args.ToArray(),
+            };
+        }
+
+        if (_toolchain.Kind == CompilerKind.Msvc)
+        {
+            var flags = MsvcLinker.LinkFlags(_model, _toolchain, _config, outFile);
+            return MsvcLinker.MakeLinkJob(objFiles, outFile, flags);
+        }
+        else if (_toolchain.Kind == CompilerKind.Emscripten)
+        {
+            var flags = EmscriptenDriver.LinkFlags(_model, outFile);
+            return EmscriptenDriver.MakeLinkJob(objFiles, outFile, flags);
+        }
+        else if (AppleLinker.IsAppleTarget(_toolchain))
+        {
+            var flags = AppleLinker.LinkFlags(_model, _toolchain, outFile);
+            return AppleLinker.MakeLinkJob(objFiles, outFile, flags);
+        }
+        else
+        {
+            // Linux, Android, WASM-bare: use LLD via clang++
+            var flags = LldLinker.LinkFlags(_model, _toolchain, outFile);
+            return LldLinker.MakeLinkJob(objFiles, outFile, flags);
+        }
+    }
+
+    /// <summary>
+    /// Returns the correct linker path for this project's link step.
+    /// Static libraries on non-MSVC use 'ar'; others use the toolchain linker.
+    /// </summary>
+    public string GetLinkerPath()
+    {
+        if (_model.Type == ProjectType.StaticLibrary && _toolchain.Kind != CompilerKind.Msvc)
+            return FindAr();
+        return _toolchain.LinkerPath;
+    }
+
+    private static string FindAr()
+    {
+        // Try llvm-ar first (alongside clang), then plain ar
+        foreach (var candidate in new[] { "llvm-ar", "ar" })
+        {
+            foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+            {
+                var full = Path.Combine(dir, candidate);
+                if (File.Exists(full)) return full;
+                if (OperatingSystem.IsWindows() && File.Exists(full + ".exe")) return full + ".exe";
+            }
+        }
+        return "ar"; // fallback: assume ar is in PATH
+    }
+
+    // ─── Output name ──────────────────────────────────────────────────────────
+
+    private string GetOutputName()
+    {
+        bool isWindows = _targetId.StartsWith("windows", StringComparison.OrdinalIgnoreCase)
+                      || _targetId.StartsWith("uwp",     StringComparison.OrdinalIgnoreCase);
+        bool isMacos   = _targetId.StartsWith("macos",   StringComparison.OrdinalIgnoreCase);
+        bool isWasm    = _targetId.StartsWith("wasm",    StringComparison.OrdinalIgnoreCase);
+
+        return _model.Type switch
+        {
+            ProjectType.Executable     => isWindows ? $"{_model.Name}.exe"
+                                        : isWasm    ? $"{_model.Name}.wasm"
+                                        : _model.Name,
+            ProjectType.StaticLibrary  => isWindows ? $"{_model.Name}.lib"
+                                        : $"lib{_model.Name}.a",
+            ProjectType.SharedLibrary  => isWindows ? $"{_model.Name}.dll"
+                                        : isMacos   ? $"lib{_model.Name}.dylib"
+                                        : $"lib{_model.Name}.so",
+            ProjectType.HeaderOnly     => string.Empty,
+            _                          => _model.Name,
+        };
+    }
+}
