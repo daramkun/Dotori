@@ -27,14 +27,16 @@ public static class ProjectDagBuilder
     /// All reachable path-dependency projects are recursively loaded.
     /// </summary>
     /// <param name="rootPaths">Absolute paths to the root .dotori files.</param>
+    /// <param name="gitPackageMap">Optional mapping of git package name → local .dotori path.</param>
     /// <returns>Map from dotoriPath → <see cref="ProjectNode"/>.</returns>
     /// <exception cref="CircularDependencyException">If a cycle is detected.</exception>
     public static IReadOnlyDictionary<string, ProjectNode> Build(
-        IEnumerable<string> rootPaths)
+        IEnumerable<string> rootPaths,
+        IReadOnlyDictionary<string, string>? gitPackageMap = null)
     {
         var nodes = new Dictionary<string, ProjectNode>(StringComparer.OrdinalIgnoreCase);
         foreach (var root in rootPaths)
-            LoadRecursive(root, nodes);
+            LoadRecursive(root, nodes, gitPackageMap);
 
         CheckCycles(nodes);
         return nodes;
@@ -141,7 +143,8 @@ public static class ProjectDagBuilder
 
     private static void LoadRecursive(
         string dotoriPath,
-        Dictionary<string, ProjectNode> nodes)
+        Dictionary<string, ProjectNode> nodes,
+        IReadOnlyDictionary<string, string>? gitPackageMap)
     {
         var normalized = Path.GetFullPath(dotoriPath);
         if (nodes.ContainsKey(normalized)) return;
@@ -158,12 +161,25 @@ public static class ProjectDagBuilder
         // Register before recursing to handle (will detect cycle afterwards)
         nodes[normalized] = node;
 
+        // path dependencies
         var pathDeps = ExtractPathDependencies(file.Project, normalized);
         foreach (var (_, depPath) in pathDeps)
         {
-            LoadRecursive(depPath, nodes);
+            LoadRecursive(depPath, nodes, gitPackageMap);
             if (nodes.TryGetValue(Path.GetFullPath(depPath), out var depNode))
                 node.Dependencies.Add(depNode);
+        }
+
+        // git dependencies (only if local .dotori paths are known)
+        if (gitPackageMap is not null)
+        {
+            foreach (var name in ExtractGitDependencyNames(file.Project))
+            {
+                if (!gitPackageMap.TryGetValue(name, out var gitDotoriPath)) continue;
+                LoadRecursive(gitDotoriPath, nodes, gitPackageMap);
+                if (nodes.TryGetValue(Path.GetFullPath(gitDotoriPath), out var gitNode))
+                    node.Dependencies.Add(gitNode);
+            }
         }
     }
 
@@ -183,6 +199,16 @@ public static class ProjectDagBuilder
                 var file = ProjectLocator.ResolveExplicitPath(dir);
                 return (i.Name, file);
             });
+    }
+
+    private static IEnumerable<string> ExtractGitDependencyNames(ProjectDecl project)
+    {
+        return project.Items
+            .OfType<DependenciesBlock>()
+            .SelectMany(b => b.Items)
+            .Where(i => (i.Value is ComplexDependency d && d.Git is not null) ||
+                         i.Value is VersionDependency)
+            .Select(i => i.Name);
     }
 
     private static void CheckCycles(Dictionary<string, ProjectNode> nodes)

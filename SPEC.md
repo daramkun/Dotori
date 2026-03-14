@@ -955,7 +955,7 @@ dotori --version
   - `wasm32-emscripten`
   - `wasm32-bare`
 - [x] C++ Modules 검증 (Clang, macos-arm64)
-- [ ] git 의존성 + path 의존성 검증
+- [x] git 의존성 + path 의존성 검증
 - [x] 단일 파일 빌드 검증
   - [x] `--file` + 링크 / `--file --no-link` / `--file --no-unity` 세 케이스
   - [x] Unity Build 켜진 프로젝트에서 `--file` → 올바른 unity batch 파일이 선택되는지 확인

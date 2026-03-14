@@ -154,4 +154,69 @@ public sealed class ProjectDagBuilderTests
             Assert.Contains(node.ProjectName, allInLevels,
                 $"Node '{node.ProjectName}' missing from levels");
     }
+
+    // ─── Git Package Map ──────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Build_WithGitPackageMap_IncludesGitPackageNode()
+    {
+        var gitPackageMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mypkg"] = FixturePath("git-deps/mypkg/.dotori"),
+        };
+
+        var nodes = ProjectDagBuilder.Build(
+            [FixturePath("git-deps/app/.dotori")],
+            gitPackageMap);
+
+        var names = nodes.Values.Select(n => n.ProjectName).ToHashSet();
+        Assert.Contains("GitDepApp", names);
+        Assert.Contains("MyPkg", names);
+    }
+
+    [TestMethod]
+    public void Build_WithGitPackageMap_AppDependsOnPackage()
+    {
+        var gitPackageMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mypkg"] = FixturePath("git-deps/mypkg/.dotori"),
+        };
+
+        var nodes = ProjectDagBuilder.Build(
+            [FixturePath("git-deps/app/.dotori")],
+            gitPackageMap);
+
+        var app = nodes.Values.Single(n => n.ProjectName == "GitDepApp");
+        Assert.IsTrue(app.Dependencies.Any(d => d.ProjectName == "MyPkg"),
+            "GitDepApp should depend on MyPkg");
+    }
+
+    [TestMethod]
+    public void Build_WithGitPackageMap_PackageBuiltBeforeApp()
+    {
+        var gitPackageMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mypkg"] = FixturePath("git-deps/mypkg/.dotori"),
+        };
+
+        var nodes = ProjectDagBuilder.Build(
+            [FixturePath("git-deps/app/.dotori")],
+            gitPackageMap);
+
+        var levels = ProjectDagBuilder.BuildLevels(nodes);
+        var pkgLevel = levels.Select((l, i) => (l, i)).First(x => x.l.Any(n => n.ProjectName == "MyPkg")).i;
+        var appLevel = levels.Select((l, i) => (l, i)).First(x => x.l.Any(n => n.ProjectName == "GitDepApp")).i;
+
+        Assert.IsLessThan(appLevel, pkgLevel, "MyPkg should be built before GitDepApp");
+    }
+
+    [TestMethod]
+    public void Build_WithoutGitPackageMap_GitDepIgnored()
+    {
+        // Without gitPackageMap, git dependencies are simply ignored
+        var nodes = ProjectDagBuilder.Build([FixturePath("git-deps/app/.dotori")]);
+
+        Assert.HasCount(1, nodes);
+        Assert.IsFalse(nodes.Values.Any(n => n.ProjectName == "MyPkg"));
+    }
 }
