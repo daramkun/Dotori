@@ -19,4 +19,13 @@ rootCommand.Add(InfoCommandFactory.Create());
 rootCommand.Add(ExportCommandFactory.Create());
 rootCommand.Add(LspCommandFactory.Create());
 
+// Registry commands
+rootCommand.Add(LoginCommandFactory.Create());
+rootCommand.Add(LogoutCommandFactory.Create());
+rootCommand.Add(PublishCommandFactory.Create());
+rootCommand.Add(SearchCommandFactory.Create());
+rootCommand.Add(OwnerCommandFactory.Create());
+rootCommand.Add(YankCommandFactory.CreateYank());
+rootCommand.Add(YankCommandFactory.CreateUnyank());
+
 return await rootCommand.Parse(args).InvokeAsync();

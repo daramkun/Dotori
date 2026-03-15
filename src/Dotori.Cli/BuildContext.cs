@@ -92,7 +92,7 @@ internal static class BuildContext
             {
                 try
                 {
-                    lockFile = await DependencyResolver.ResolveAsync(file.Project, existingLock, ct);
+                    lockFile = await DependencyResolver.ResolveAsync(file.Project, existingLock, ct: ct);
                     LockManager.Save(lockFile, projectDir);
                 }
                 catch (Exception ex)
