@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="../Dotori.Core/Dotori.Core.csproj" />
     <ProjectReference Include="../Dotori.PackageManager/Dotori.PackageManager.csproj" />
+    <ProjectReference Include="../Dotori.LanguageServer/Dotori.LanguageServer.csproj" />
   </ItemGroup>
 
 </Project>

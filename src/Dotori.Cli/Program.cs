@@ -17,5 +17,6 @@ rootCommand.Add(PackageCommandFactory.Create());   // `dotori package ...` alias
 
 rootCommand.Add(InfoCommandFactory.Create());
 rootCommand.Add(ExportCommandFactory.Create());
+rootCommand.Add(LspCommandFactory.Create());
 
 return await rootCommand.Parse(args).InvokeAsync();
