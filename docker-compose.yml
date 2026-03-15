@@ -86,7 +86,119 @@ services:
     profiles:
       - s3
 
+  # PostgreSQL (use: docker compose --profile postgres up)
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=dotori
+      - POSTGRES_USER=${POSTGRES_USER:-dotori}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dotori}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  registry-postgres:
+    build:
+      context: .
+      dockerfile: src/Dotori.Registry/Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - Database__Provider=postgres
+      - Registry__Mode=standalone
+      - Registry__StorageRoot=/data/packages
+      - ConnectionStrings__Default=Host=postgres;Database=dotori;Username=${POSTGRES_USER:-dotori};Password=${POSTGRES_PASSWORD:-dotori}
+      - OAuth__Jwt__Secret=${DOTORI_JWT_SECRET:-change-this-secret-in-production-min-32-chars}
+    volumes:
+      - registry-postgres-data:/data
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  # MySQL / MariaDB (use: docker compose --profile mysql up)
+  mysql:
+    image: mysql:9.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=dotori
+      - MYSQL_USER=${MYSQL_USER:-dotori}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-dotori}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    restart: unless-stopped
+    profiles:
+      - mysql
+
+  registry-mysql:
+    build:
+      context: .
+      dockerfile: src/Dotori.Registry/Dockerfile
+    ports:
+      - "8083:8080"
+    environment:
+      - Database__Provider=mysql
+      - Registry__Mode=standalone
+      - Registry__StorageRoot=/data/packages
+      - ConnectionStrings__Default=Server=mysql;Database=dotori;User=${MYSQL_USER:-dotori};Password=${MYSQL_PASSWORD:-dotori};
+      - OAuth__Jwt__Secret=${DOTORI_JWT_SECRET:-change-this-secret-in-production-min-32-chars}
+    volumes:
+      - registry-mysql-data:/data
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    profiles:
+      - mysql
+
+  # Oracle XE (use: docker compose --profile oracle up)
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD:-dotori}
+      - APP_USER=dotori
+      - APP_USER_PASSWORD=${ORACLE_APP_PASSWORD:-dotori}
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    restart: unless-stopped
+    profiles:
+      - oracle
+
+  registry-oracle:
+    build:
+      context: .
+      dockerfile: src/Dotori.Registry/Dockerfile
+    ports:
+      - "8084:8080"
+    environment:
+      - Database__Provider=oracle
+      - Registry__Mode=standalone
+      - Registry__StorageRoot=/data/packages
+      - ConnectionStrings__Default=User Id=dotori;Password=${ORACLE_APP_PASSWORD:-dotori};Data Source=oracle/XEPDB1
+      - OAuth__Jwt__Secret=${DOTORI_JWT_SECRET:-change-this-secret-in-production-min-32-chars}
+    volumes:
+      - registry-oracle-data:/data
+    depends_on:
+      - oracle
+    restart: unless-stopped
+    profiles:
+      - oracle
+
 volumes:
   registry-data:
   minio-data:
   registry-s3-data:
+  postgres-data:
+  registry-postgres-data:
+  mysql-data:
+  registry-mysql-data:
+  oracle-data:
+  registry-oracle-data:

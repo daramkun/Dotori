@@ -6,10 +6,31 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DB
+// DB — provider는 Database:Provider 설정으로 선택 (기본: sqlite)
+var dbProvider = builder.Configuration["Database:Provider"]?.ToLowerInvariant() ?? "sqlite";
+var connStr = builder.Configuration.GetConnectionString("Default");
+
 builder.Services.AddDbContext<RegistryDbContext>(opt =>
-    opt.UseSqlite(builder.Configuration.GetConnectionString("Default")
-        ?? "Data Source=registry.db"));
+{
+    switch (dbProvider)
+    {
+        case "postgres":
+        case "postgresql":
+            opt.UseNpgsql(connStr ?? "Host=localhost;Database=dotori;Username=dotori;Password=dotori");
+            break;
+        case "mysql":
+        case "mariadb":
+            opt.UseMySql(connStr ?? "Server=localhost;Database=dotori;User=dotori;Password=dotori;",
+                ServerVersion.AutoDetect(connStr ?? "Server=localhost;Database=dotori;User=dotori;Password=dotori;"));
+            break;
+        case "oracle":
+            opt.UseOracle(connStr ?? "User Id=dotori;Password=dotori;Data Source=localhost/XEPDB1");
+            break;
+        default: // sqlite
+            opt.UseSqlite(connStr ?? "Data Source=registry.db");
+            break;
+    }
+});
 
 // Storage (filesystem default; S3 when S3_BUCKET env var is set)
 if (Environment.GetEnvironmentVariable("S3_BUCKET") is not null)
