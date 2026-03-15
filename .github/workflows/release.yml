@@ -94,7 +94,7 @@ jobs:
             for f in "$src"/dotori "$src"/dotori.exe \
                      "$src"/dotori-server "$src"/dotori-server.exe \
                      "$src"/dotori-worker "$src"/dotori-worker.exe; do
-              [ -f "$f" ] && cp "$f" dist/
+              if [ -f "$f" ]; then cp "$f" dist/; fi
             done
           done
           cd dist
