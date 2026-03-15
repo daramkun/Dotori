@@ -17,6 +17,7 @@ rootCommand.Add(PackageCommandFactory.Create());   // `dotori package ...` alias
 
 rootCommand.Add(InfoCommandFactory.Create());
 rootCommand.Add(ExportCommandFactory.Create());
+rootCommand.Add(GenerateCompileCommandsCommandFactory.Create());
 rootCommand.Add(LspCommandFactory.Create());
 
 // Registry commands
