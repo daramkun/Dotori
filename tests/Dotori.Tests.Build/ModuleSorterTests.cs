@@ -123,11 +123,11 @@ public sealed class ModuleSorterTests
                 new[] { "-std=c++23", "-c" });
 
             Assert.HasCount(1, jobs);
-            var args = string.Join(" ", jobs[0].Args);
 
-            Assert.Contains("--precompile", args, "Should contain --precompile");
-            Assert.Contains("-x c++-module", args, "Should contain -x c++-module");
-            Assert.DoesNotContain("-c", args, "Should not contain -c (removed)");
+            // Check exact args to avoid false positives from file paths containing "-c"
+            Assert.IsTrue(jobs[0].Args.Contains("--precompile"), "Should contain --precompile");
+            Assert.IsTrue(jobs[0].Args.Contains("-x c++-module"), "Should contain -x c++-module");
+            Assert.IsFalse(jobs[0].Args.Contains("-c"), "Should not contain -c (removed)");
             Assert.EndsWith(".pcm", jobs[0].OutputFile, "Output should be .pcm");
         }
         finally
@@ -150,11 +150,11 @@ public sealed class ModuleSorterTests
                 new[] { "/std:c++latest", "/c" });
 
             Assert.HasCount(1, jobs);
-            var args = string.Join(" ", jobs[0].Args);
 
-            Assert.Contains("/interface", args, "Should contain /interface");
-            Assert.Contains("/TP", args, "Should contain /TP");
-            Assert.DoesNotContain("/c", args, "Should not contain /c (removed)");
+            // Check exact args (not joined string to avoid false positives from file paths)
+            Assert.IsTrue(jobs[0].Args.Contains("/interface"), "Should contain /interface");
+            Assert.IsTrue(jobs[0].Args.Contains("/TP"), "Should contain /TP");
+            Assert.IsFalse(jobs[0].Args.Contains("/c"), "Should not contain /c (removed)");
             Assert.EndsWith(".ifc", jobs[0].OutputFile, "Output should be .ifc");
         }
         finally
