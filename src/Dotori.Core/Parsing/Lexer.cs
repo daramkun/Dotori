@@ -19,6 +19,7 @@ public enum TokenKind
 
     // Special
     Dot,            // . (inside condition)
+    Slash,          // / (inside dep_name: owner/package)
     Eof,
 }
 
@@ -85,6 +86,10 @@ public sealed class Lexer
                 continue;
             }
 
+            // / slash (dep_name: owner/package)
+            if (Current == '/')
+                break;
+
             break;
         }
     }
@@ -113,6 +118,7 @@ public sealed class Lexer
                 case '=': Advance(); tokens.Add(new Token(TokenKind.Equals, "=", loc)); break;
                 case ',': Advance(); tokens.Add(new Token(TokenKind.Comma, ",", loc)); break;
                 case '.': Advance(); tokens.Add(new Token(TokenKind.Dot, ".", loc)); break;
+                case '/': Advance(); tokens.Add(new Token(TokenKind.Slash, "/", loc)); break;
 
                 case '"':
                 {

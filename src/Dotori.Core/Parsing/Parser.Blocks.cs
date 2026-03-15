@@ -127,7 +127,18 @@ public sealed partial class Parser
         var block = new DependenciesBlock { Location = loc };
         while (Current.Kind == TokenKind.Ident)
         {
-            var name = Consume().Text;
+            var ownerOrName = Consume().Text;
+            string name;
+            if (Current.Kind == TokenKind.Slash)
+            {
+                Consume(); // consume '/'
+                var pkg = Expect(TokenKind.Ident).Text;
+                name = $"{ownerOrName}/{pkg}";
+            }
+            else
+            {
+                name = ownerOrName;
+            }
             Expect(TokenKind.Equals);
             var value = ParseDepValue();
             block.Items.Add(new DependencyItem(name, value));
