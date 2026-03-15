@@ -7,6 +7,7 @@
     <Project Path="src/Dotori.BuildServer/Dotori.BuildServer.csproj" />
     <Project Path="src/Dotori.Worker/Dotori.Worker.csproj" />
     <Project Path="src/Dotori.LanguageServer/Dotori.LanguageServer.csproj" />
+    <Project Path="src/Dotori.Registry/Dotori.Registry.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="tests/Dotori.Tests.Build/Dotori.Tests.Build.csproj" />
@@ -14,5 +15,6 @@
     <Project Path="tests/Dotori.Tests.PackageManager/Dotori.Tests.PackageManager.csproj" />
     <Project Path="tests/Dotori.Tests.Parsing/Dotori.Tests.Parsing.csproj" />
     <Project Path="tests/Dotori.Tests.LanguageServer/Dotori.Tests.LanguageServer.csproj" />
+    <Project Path="tests/Dotori.Tests.Registry/Dotori.Tests.Registry.csproj" />
   </Folder>
 </Solution>
