@@ -1,4 +1,5 @@
 using Dotori.Core.Parsing;
+using Dotori.PackageManager.Config;
 
 namespace Dotori.PackageManager;
 
@@ -14,10 +15,12 @@ public static class DependencyResolver
     /// </summary>
     /// <param name="project">Parsed project declaration.</param>
     /// <param name="existingLock">Existing lock file to update.</param>
+    /// <param name="registryUrl">레지스트리 URL (null이면 설정에서 읽음).</param>
     /// <returns>Updated lock file.</returns>
     public static async Task<LockFile> ResolveAsync(
         ProjectDecl project,
         LockFile existingLock,
+        string? registryUrl = null,
         CancellationToken ct = default)
     {
         // Collect all non-path dependencies from the project
@@ -32,8 +35,15 @@ public static class DependencyResolver
             return empty;
         }
 
-        // Build a package source backed by the existing lock + git fetcher
-        var source = new Phase1PackageSource(existingLock, ct);
+        // 레지스트리 클라이언트 생성 (연결 불가 시 null)
+        RegistryClient? registryClient = null;
+        var config = DotoriConfigManager.Load();
+        var regUrl = registryUrl ?? config.DefaultRegistry;
+        try { registryClient = RegistryClient.FromConfig(regUrl); }
+        catch { /* 오프라인 모드 — lock 파일 폴백 */ }
+
+        // Build a package source backed by the existing lock + registry + git fetcher
+        var source = new RegistryPackageSource(existingLock, regUrl, registryClient, ct);
 
         // Register git dependencies so the source knows where to fetch them
         RegisterGitDependencies(project, source);
@@ -82,9 +92,25 @@ public static class DependencyResolver
                 }
                 newLock.Packages.Add(entry);
             }
+            else if (source.TryGetRegistryInfo(name, out var resolvedRegUrl) && registryClient is not null)
+            {
+                // 레지스트리 패키지: 다운로드 후 캐시
+                var slash = name.IndexOf('/');
+                var owner = name[..slash];
+                var pkgName = name[(slash + 1)..];
+
+                await PackageInstaller.InstallAsync(registryClient, resolvedRegUrl, owner, pkgName, version.ToString(), ct);
+                var entry = new LockEntry
+                {
+                    Name    = name,
+                    Version = version.ToString(),
+                    Source  = $"registry+{resolvedRegUrl}/{owner}/{pkgName}@{version}",
+                };
+                newLock.Packages.Add(entry);
+            }
             else
             {
-                // Version-only dependency (no registry yet — record as placeholder)
+                // 폴백: 플레이스홀더 기록
                 var entry = new LockEntry
                 {
                     Name    = name,
@@ -95,12 +121,13 @@ public static class DependencyResolver
             }
         }
 
+        registryClient?.Dispose();
         return newLock;
     }
 
     // ─── Git Registration ────────────────────────────────────────────────────
 
-    private static void RegisterGitDependencies(ProjectDecl project, Phase1PackageSource source)
+    private static void RegisterGitDependencies(ProjectDecl project, RegistryPackageSource source)
     {
         var deps = project.Items
             .OfType<DependenciesBlock>()
@@ -183,30 +210,23 @@ public static class DependencyResolver
     }
 }
 
-// ─── Phase 1 Package Source ──────────────────────────────────────────────────
+// ─── Phase 1 Package Source (legacy, kept for backward compat) ───────────────
 
 /// <summary>
-/// Package source for Phase 1: no central registry.
-/// Versions come from the existing lock file; git packages are fetched to discover deps.
+/// Package source for Phase 1 (git-only): kept for backward compatibility.
+/// New code uses RegistryPackageSource.
 /// </summary>
 internal sealed class Phase1PackageSource : IPackageSource
 {
     private readonly LockFile _existingLock;
-    private readonly CancellationToken _ct;
-
-    // git: name → (url, tagOrCommit)
     private readonly Dictionary<string, (string url, string tagOrCommit)> _gitInfo = new();
-
-    // Cache of fetched manifests: name@version → deps
     private readonly Dictionary<string, IReadOnlyDictionary<string, VersionConstraint>> _depCache = new();
 
     public Phase1PackageSource(LockFile existingLock, CancellationToken ct)
     {
         _existingLock = existingLock;
-        _ct = ct;
     }
 
-    /// <summary>Register a git dependency so we can fetch it later.</summary>
     public void RegisterGit(string name, string url, string tagOrCommit) =>
         _gitInfo[name] = (url, tagOrCommit);
 
@@ -226,17 +246,13 @@ internal sealed class Phase1PackageSource : IPackageSource
     {
         var versions = new List<SemanticVersion>();
 
-        // Check existing lock first
         foreach (var entry in _existingLock.Packages)
         {
             if (entry.Name.Equals(package, StringComparison.OrdinalIgnoreCase) &&
                 SemanticVersion.TryParse(entry.Version, out var v))
-            {
                 versions.Add(v);
-            }
         }
 
-        // If we have git info, the only "available" version is the pinned one
         if (_gitInfo.TryGetValue(package, out var gitInfo))
         {
             var tagOrCommit = gitInfo.tagOrCommit;
@@ -248,20 +264,17 @@ internal sealed class Phase1PackageSource : IPackageSource
                 versions.Add(gitVer);
         }
 
-        // Sort newest first
         versions.Sort((a, b) => b.CompareTo(a));
-
         return Task.FromResult<IReadOnlyList<SemanticVersion>>(versions);
     }
 
-    public async Task<IReadOnlyDictionary<string, VersionConstraint>> GetDependenciesAsync(
+    public Task<IReadOnlyDictionary<string, VersionConstraint>> GetDependenciesAsync(
         string package, SemanticVersion version, CancellationToken ct)
     {
         var key = $"{package}@{version}";
         if (_depCache.TryGetValue(key, out var cached))
-            return cached;
+            return Task.FromResult(cached);
 
-        // Try to get from existing lock (no transitive manifest available in Phase 1 without fetching)
         var lockEntry = _existingLock.Packages.FirstOrDefault(
             p => p.Name.Equals(package, StringComparison.OrdinalIgnoreCase) &&
                  SemanticVersion.TryParse(p.Version, out var v) && v == version);
@@ -271,24 +284,16 @@ internal sealed class Phase1PackageSource : IPackageSource
             var deps = new Dictionary<string, VersionConstraint>();
             foreach (var dep in lockEntry.Deps)
             {
-                // Format: "name@version"
                 var atIdx = dep.LastIndexOf('@');
                 if (atIdx > 0)
-                {
-                    var depName = dep[..atIdx];
-                    var depVer  = dep[(atIdx + 1)..];
-                    deps[depName] = VersionConstraint.Parse(depVer);
-                }
+                    deps[dep[..atIdx]] = VersionConstraint.Parse(dep[(atIdx + 1)..]);
             }
             _depCache[key] = deps;
-            return deps;
+            return Task.FromResult<IReadOnlyDictionary<string, VersionConstraint>>(deps);
         }
 
-        // For git packages: we could fetch and parse .dotori, but that is expensive.
-        // In Phase 1, return empty deps (transitive deps of git packages are resolved
-        // if they declare their own deps in a future registry phase).
-        var empty = new Dictionary<string, VersionConstraint>();
+        IReadOnlyDictionary<string, VersionConstraint> empty = new Dictionary<string, VersionConstraint>();
         _depCache[key] = empty;
-        return empty;
+        return Task.FromResult(empty);
     }
 }
