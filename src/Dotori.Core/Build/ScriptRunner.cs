@@ -65,10 +65,15 @@ public static class ScriptRunner
             proc.BeginErrorReadLine();
 
             await proc.WaitForExitAsync(ct);
-            if (proc.ExitCode != 0)
+            // WaitForExit() (no-arg) ensures async stdout/stderr readers are fully drained
+            // before we read ExitCode or let the caller delete the working directory.
+            proc.WaitForExit();
+            var exitCode = proc.ExitCode;
+            proc.Dispose();
+            if (exitCode != 0)
             {
-                Console.Error.WriteLine($"Script failed (exit {proc.ExitCode}): {cmd}");
-                return proc.ExitCode;
+                Console.Error.WriteLine($"Script failed (exit {exitCode}): {cmd}");
+                return exitCode;
             }
         }
         return 0;
