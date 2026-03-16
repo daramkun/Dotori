@@ -8,6 +8,7 @@ BUILD_DIR="$REPO_ROOT/build"
 CONFIG="${CONFIG:-Release}"
 RID=""        # --rid  <runtime-id>  (예: linux-x64, win-x64, osx-arm64)
 VERSION=""    # --version <ver>       (예: v1.2.3)
+INSTALL=false # --install            CLI 빌드 후 시스템에 설치
 
 # 색상 출력
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -31,6 +32,7 @@ while [[ $# -gt 0 ]]; do
         --config)  shift; CONFIG="$1" ;;
         --rid)     shift; RID="$1" ;;
         --version) shift; VERSION="$1" ;;
+        --install) INSTALL=true ;;
         --help|-h) SHOW_HELP=true ;;
         *) error "알 수 없는 옵션: $1"; SHOW_HELP=true ;;
     esac
@@ -48,6 +50,7 @@ if $SHOW_HELP; then
   --rid <rid>        .NET Runtime Identifier (예: linux-x64, win-x64, osx-arm64)
                      지정 시 --self-contained 으로 퍼블리시
   --version <ver>    어셈블리 버전 (예: v1.2.3) — -p:Version 으로 전달
+  --install          CLI 빌드 후 시스템에 설치 (manpage 포함)
   --help             이 도움말 출력
 
 대상 목록: ${ALL_TARGETS[*]}
@@ -58,6 +61,8 @@ if $SHOW_HELP; then
   ./build.sh --only cli,build_server,worker --rid linux-x64
   ./build.sh --only cli,build_server,worker --rid win-x64 --version v1.0.0
   ./build.sh --config Debug
+  ./build.sh --only cli --install
+  ./build.sh --only cli --rid linux-x64 --install
 EOF
     exit 0
 fi
@@ -155,6 +160,72 @@ build_registry() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
+# CLI 설치
+# ──────────────────────────────────────────────────────────────────────────────
+install_cli() {
+    local binary="$BUILD_DIR/cli/dotori"
+    local manpage="$REPO_ROOT/docs/dotori.1"
+
+    if [[ ! -f "$binary" ]]; then
+        error "[install] CLI 바이너리를 찾을 수 없습니다: $binary"
+        error "[install] 먼저 ./build.sh --only cli 를 실행하세요."
+        return 1
+    fi
+
+    echo ""
+    if [[ $EUID -eq 0 ]]; then
+        # ── root: /usr/local/bin 에 직접 설치 ────────────────────────────────
+        local bin_dir="/usr/local/bin"
+        local man_dir="/usr/local/share/man/man1"
+
+        info "[install] root 권한으로 ${bin_dir}/dotori 에 설치합니다..."
+        install -m 755 "$binary" "$bin_dir/dotori"
+
+        if [[ -f "$manpage" ]]; then
+            mkdir -p "$man_dir"
+            install -m 644 "$manpage" "$man_dir/dotori.1"
+            # mandb가 있으면 man 색인 갱신 (없어도 무시)
+            command -v mandb &>/dev/null && mandb -q 2>/dev/null || true
+            success "[install] manpage 설치 완료: ${man_dir}/dotori.1"
+        fi
+
+        success "[install] 설치 완료: ${bin_dir}/dotori"
+    else
+        # ── 일반 사용자: ~/.local/bin 에 설치할지 확인 ───────────────────────
+        local bin_dir="$HOME/.local/bin"
+        local man_dir="$HOME/.local/share/man/man1"
+
+        echo -e "${YELLOW}[install]${NC} root 권한이 없습니다."
+        echo -e "         ${CYAN}${bin_dir}/dotori${NC} 에 설치하시겠습니까? [Y/n] \c"
+        read -r answer </dev/tty
+        answer="${answer:-Y}"
+
+        if [[ "$answer" =~ ^[Yy] ]]; then
+            mkdir -p "$bin_dir"
+            install -m 755 "$binary" "$bin_dir/dotori"
+
+            if [[ -f "$manpage" ]]; then
+                mkdir -p "$man_dir"
+                install -m 644 "$manpage" "$man_dir/dotori.1"
+                success "[install] manpage 설치 완료: ${man_dir}/dotori.1"
+            fi
+
+            success "[install] 설치 완료: ${bin_dir}/dotori"
+
+            # PATH 미등록 안내
+            if [[ ":$PATH:" != *":${bin_dir}:"* ]]; then
+                echo ""
+                warn "[install] ${bin_dir} 가 PATH에 등록되어 있지 않습니다."
+                warn "         ~/.bashrc 또는 ~/.zshrc 에 아래 줄을 추가하세요:"
+                warn "           export PATH=\"\$HOME/.local/bin:\$PATH\""
+            fi
+        else
+            info "[install] 설치를 취소했습니다."
+        fi
+    fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────────────────────────────────────
 echo ""
@@ -182,4 +253,9 @@ if [[ ${#FAILED[@]} -eq 0 ]]; then
 else
     error "실패한 대상: ${FAILED[*]}"
     exit 1
+fi
+
+# --install 플래그가 있으면 CLI 설치 수행
+if $INSTALL; then
+    install_cli || exit 1
 fi
