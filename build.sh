@@ -17,7 +17,7 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 error()   { echo -e "${RED}[error]${NC} $*" >&2; }
 
 # 빌드 대상 목록 (--only 옵션으로 필터링 가능)
-ALL_TARGETS=(language_server cli build_server worker registry )
+ALL_TARGETS=(language_server cli build_server worker registry)
 
 # 옵션 파싱
 ONLY_TARGETS=()
