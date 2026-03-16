@@ -19,6 +19,8 @@ LLM 에이전트에 가이드를 제공하는 용도로 사용하는 파일.
    - 분산 빌드 서버 관련 변경 → `docs/distributed-build.md`
    - 레지스트리 서버 관련 변경 → `docs/registry.md`
    - 새 기능 추가 시 `docs/examples.md`에 예제 추가 고려
+   - build.sh 옵션/대상 변경 → `docs/building.md`
+   - CLI 명령어/옵션 변경 시 `docs/dotori.1` manpage도 함께 수정
 
 ## 사용 가능한 명령어
 ```bash
