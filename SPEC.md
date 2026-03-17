@@ -1063,6 +1063,13 @@ dotori test --filter "MyTest*"
 dotori clean
 dotori clean --all
 
+# 포매팅
+dotori format                            # 현재 디렉토리 탐색
+dotori format .dotori                    # 파일 직접 지정
+dotori format --project ./lib            # 프로젝트 경로 지정
+dotori format --check                    # 포매팅 여부만 확인 (CI 사용 가능)
+dotori format --stdout .dotori           # stdout으로 출력
+
 # 패키지 관리
 dotori add <n>
 dotori add <n>@1.2.0

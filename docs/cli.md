@@ -189,6 +189,39 @@ dotori list
 
 ---
 
+## format — 포매팅
+
+`.dotori` 파일을 정규 형식으로 포매팅합니다.
+
+```bash
+dotori format [파일] [옵션]
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `<파일>` | 포매팅할 `.dotori` 파일 또는 디렉토리 경로 (생략 시 현재 디렉토리 탐색) |
+| `--project <경로>` | `.dotori` 파일 또는 프로젝트 디렉토리 경로 |
+| `--check` | 파일을 수정하지 않고 포매팅 여부만 확인 (포매팅 필요 시 exit 1) |
+| `--stdout` | 파일을 수정하지 않고 포매팅 결과를 stdout으로 출력 |
+
+> **참고:** 포매터는 AST 기반으로 동작하므로 원본 주석(`(*...*)`)은 보존되지 않습니다.
+
+```bash
+# 현재 디렉토리의 .dotori 파일 포매팅
+dotori format
+
+# 특정 파일 포매팅
+dotori format .dotori
+
+# 포매팅 여부 확인 (CI 사용 가능)
+dotori format --check
+
+# stdout으로 출력
+dotori format --stdout .dotori
+```
+
+---
+
 ## 정보 및 진단 명령어
 
 ### info — 프로젝트 정보

@@ -46,6 +46,13 @@ C++17/20/23, C++ Modules, PCH, Unity Build, 분산 빌드를 지원합니다.
 .B list
 설치된 패키지 목록을 출력합니다.
 .
+.SS 포매팅
+.TP
+.B format [\fIfile\fR]
+.I .dotori
+파일을 정규 형식으로 포매팅합니다.
+\fB--check\fR 옵션으로 포매팅 여부만 확인하거나, \fB--stdout\fR으로 결과를 표준 출력으로 내보낼 수 있습니다.
+.
 .SS 정보 및 진단
 .TP
 .B info
@@ -98,6 +105,23 @@ stdio transport로 LSP 서버를 시작합니다 (IDE 플러그인 전용).
 clangd 통합을 위한
 .I compile_commands.json
 을 생성합니다.
+.
+.SH FORMAT OPTIONS
+.TP
+.BI \fIfile\fR
+포매팅할
+.I .dotori
+파일 또는 디렉토리 경로. 생략 시 현재 디렉토리를 탐색합니다.
+.TP
+.BI \-\-project " path"
+.I .dotori
+파일 또는 디렉토리 경로를 지정합니다 (위치 인수와 동일).
+.TP
+.B \-\-check
+파일을 수정하지 않고 포매팅 필요 여부만 검사합니다. 포매팅이 필요한 파일이 있으면 종료 코드 1을 반환합니다.
+.TP
+.B \-\-stdout
+포매팅된 결과를 파일에 쓰지 않고 표준 출력으로 출력합니다.
 .
 .SH BUILD OPTIONS
 .TP
