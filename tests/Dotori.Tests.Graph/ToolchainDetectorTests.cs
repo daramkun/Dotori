@@ -41,4 +41,93 @@ public sealed class ToolchainDetectorTests
             }
         }
     }
+
+    // ── Phase 1-M: IsClangCl / IsMinGW property tests ───────────────────────
+
+    [TestMethod]
+    public void IsClangCl_True_WhenKindMsvcAndCompilerNameClangCl()
+    {
+        // Use path.Combine so the test works cross-platform (macOS/Linux CI as well)
+        var compilerPath = Path.Combine("llvm", "bin", "clang-cl.exe");
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Msvc,
+            CompilerPath = compilerPath,
+            LinkerPath   = Path.Combine("llvm", "bin", "lld-link.exe"),
+            TargetTriple = "x86_64-pc-windows-msvc",
+        };
+
+        Assert.IsTrue(toolchain.IsClangCl, "Should be clang-cl when Kind==Msvc and compiler name is clang-cl");
+    }
+
+    [TestMethod]
+    public void IsClangCl_False_WhenKindMsvcAndCompilerNameCl()
+    {
+        var compilerPath = Path.Combine("msvc", "bin", "cl.exe");
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Msvc,
+            CompilerPath = compilerPath,
+            LinkerPath   = Path.Combine("msvc", "bin", "link.exe"),
+            TargetTriple = "x86_64-pc-windows-msvc",
+        };
+
+        Assert.IsFalse(toolchain.IsClangCl, "Should not be clang-cl when compiler is cl.exe");
+    }
+
+    [TestMethod]
+    public void IsClangCl_False_WhenKindClang()
+    {
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Clang,
+            CompilerPath = "/usr/bin/clang++",
+            LinkerPath   = "/usr/bin/clang++",
+            TargetTriple = "x86_64-unknown-linux-gnu",
+        };
+
+        Assert.IsFalse(toolchain.IsClangCl, "Clang (not clang-cl) should not be IsClangCl");
+    }
+
+    [TestMethod]
+    public void IsMinGW_True_WhenKindClangAndTripleContainsMingw()
+    {
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Clang,
+            CompilerPath = "/usr/bin/clang++",
+            LinkerPath   = "/usr/bin/clang++",
+            TargetTriple = "x86_64-w64-mingw32",
+        };
+
+        Assert.IsTrue(toolchain.IsMinGW, "Should be MinGW when triple contains 'mingw'");
+    }
+
+    [TestMethod]
+    public void IsMinGW_False_WhenKindMsvc()
+    {
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Msvc,
+            CompilerPath = @"C:\LLVM\clang-cl.exe",
+            LinkerPath   = @"C:\LLVM\lld-link.exe",
+            TargetTriple = "x86_64-w64-mingw32",  // triple doesn't matter if Kind != Clang
+        };
+
+        Assert.IsFalse(toolchain.IsMinGW, "MSVC kind should never be IsMinGW");
+    }
+
+    [TestMethod]
+    public void IsMinGW_False_WhenKindClangAndTripleNotMingw()
+    {
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Clang,
+            CompilerPath = "/usr/bin/clang++",
+            LinkerPath   = "/usr/bin/clang++",
+            TargetTriple = "x86_64-unknown-linux-gnu",
+        };
+
+        Assert.IsFalse(toolchain.IsMinGW, "Linux Clang should not be IsMinGW");
+    }
 }

@@ -1,3 +1,4 @@
+using Dotori.Core.Build;
 using Dotori.Core.Linker;
 using Dotori.Core.Model;
 using Dotori.Core.Parsing;
@@ -330,5 +331,158 @@ public sealed class AppleLinkerTests
         var userFlagIdx = flags.ToList().FindIndex(f => f == "-Wl,-rpath,@executable_path/lib");
 
         Assert.IsTrue(userFlagIdx > outputIdx, "User link flags should come after dotori-generated flags");
+    }
+}
+
+// ── Phase 1-M: clang-cl -imsvc flags ────────────────────────────────────────
+
+[TestClass]
+public sealed class ClangClFlagsTests
+{
+    private static FlatProjectModel MakeModel(string projectDir = "/tmp/project")
+    {
+        return new FlatProjectModel
+        {
+            Name       = "MyLib",
+            ProjectDir = projectDir,
+            DotoriPath = Path.Combine(projectDir, ".dotori"),
+            Type       = ProjectType.Executable,
+        };
+    }
+
+    [TestMethod]
+    public void CompileFlags_ClangCl_ContainsImsvcFlags()
+    {
+        var vcToolsDir = Path.Combine("MSVC", "Tools", "14.39");
+        var winSdkDir  = Path.Combine("WinSDK", "10");
+        var msvcPaths = new MsvcPaths
+        {
+            VcToolsDir   = vcToolsDir,
+            WinSdkDir    = winSdkDir,
+            WinSdkVer    = "10.0.22621.0",
+            Architecture = "x64",
+        };
+
+        // Use Path.Combine so the test works cross-platform (macOS/Linux CI)
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Msvc,
+            CompilerPath = Path.Combine("LLVM", "bin", "clang-cl.exe"),
+            LinkerPath   = Path.Combine("LLVM", "bin", "lld-link.exe"),
+            TargetTriple = "x86_64-pc-windows-msvc",
+            Msvc         = msvcPaths,
+        };
+
+        Assert.IsTrue(toolchain.IsClangCl, "Pre-condition: toolchain should be clang-cl");
+
+        var flags = MsvcDriver.CompileFlags(MakeModel(), toolchain, "debug", "obj");
+        var flagStr = string.Join(" ", flags);
+
+        Assert.IsTrue(flagStr.Contains("-imsvc"), "clang-cl compile flags must contain -imsvc for Windows SDK headers");
+        Assert.IsTrue(flagStr.Contains(vcToolsDir), "Should include VcToolsDir include path");
+        Assert.IsTrue(flagStr.Contains("ucrt"), "Should include ucrt include path");
+        Assert.IsTrue(flagStr.Contains("um"),   "Should include um include path");
+        Assert.IsTrue(flagStr.Contains("shared"), "Should include shared include path");
+    }
+
+    [TestMethod]
+    public void CompileFlags_RegularCl_DoesNotContainImsvc()
+    {
+        var msvcPaths = new MsvcPaths
+        {
+            VcToolsDir   = Path.Combine("MSVC", "Tools", "14.39"),
+            WinSdkDir    = Path.Combine("WinSDK", "10"),
+            WinSdkVer    = "10.0.22621.0",
+            Architecture = "x64",
+        };
+
+        var toolchain = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Msvc,
+            CompilerPath = Path.Combine("MSVC", "bin", "cl.exe"),
+            LinkerPath   = Path.Combine("MSVC", "bin", "link.exe"),
+            TargetTriple = "x86_64-pc-windows-msvc",
+            Msvc         = msvcPaths,
+        };
+
+        Assert.IsFalse(toolchain.IsClangCl, "Pre-condition: toolchain should be cl.exe, not clang-cl");
+
+        var flags = MsvcDriver.CompileFlags(MakeModel(), toolchain, "debug", "obj");
+        var flagStr = string.Join(" ", flags);
+
+        Assert.IsFalse(flagStr.Contains("-imsvc"), "cl.exe should NOT have -imsvc (it finds SDK headers automatically)");
+    }
+}
+
+// ── Phase 1-M: MinGW static library output name ─────────────────────────────
+
+[TestClass]
+public sealed class MinGWOutputNameTests
+{
+    private string _tempDir = string.Empty;
+
+    [TestInitialize]
+    public void SetUp()
+    {
+        _tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(_tempDir);
+    }
+
+    [TestCleanup]
+    public void TearDown()
+    {
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, recursive: true);
+    }
+
+    private BuildPlanner MakePlanner(ProjectType type, bool isMinGW, string targetId = "windows-x64")
+    {
+        var model = new FlatProjectModel
+        {
+            Name       = "MyLib",
+            ProjectDir = _tempDir,
+            DotoriPath = Path.Combine(_tempDir, ".dotori"),
+            Type       = type,
+        };
+
+        var toolchain = isMinGW
+            ? new ToolchainInfo
+            {
+                Kind         = CompilerKind.Clang,
+                CompilerPath = "/usr/bin/x86_64-w64-mingw32-clang++",
+                LinkerPath   = "/usr/bin/x86_64-w64-mingw32-clang++",
+                TargetTriple = "x86_64-w64-mingw32",
+            }
+            : new ToolchainInfo
+            {
+                Kind         = CompilerKind.Msvc,
+                CompilerPath = @"C:\MSVC\cl.exe",
+                LinkerPath   = @"C:\MSVC\link.exe",
+                TargetTriple = "x86_64-pc-windows-msvc",
+            };
+
+        return new BuildPlanner(model, toolchain, "debug", targetId);
+    }
+
+    [TestMethod]
+    public void MinGW_StaticLibrary_OutputName_IsLibDotA()
+    {
+        var planner = MakePlanner(ProjectType.StaticLibrary, isMinGW: true);
+        var job = planner.PlanLinkJob(new[] { "a.o", "b.o" });
+
+        Assert.IsNotNull(job, "Static library should produce a link job");
+        Assert.IsTrue(job.OutputFile.EndsWith("libMyLib.a", StringComparison.OrdinalIgnoreCase),
+            $"MinGW static library should use libXxx.a convention, got: {job.OutputFile}");
+    }
+
+    [TestMethod]
+    public void Msvc_StaticLibrary_OutputName_IsDotLib()
+    {
+        var planner = MakePlanner(ProjectType.StaticLibrary, isMinGW: false);
+        var job = planner.PlanLinkJob(new[] { "a.obj", "b.obj" });
+
+        Assert.IsNotNull(job, "Static library should produce a link job");
+        Assert.IsTrue(job.OutputFile.EndsWith("MyLib.lib", StringComparison.OrdinalIgnoreCase),
+            $"MSVC static library should use Xxx.lib convention, got: {job.OutputFile}");
     }
 }
