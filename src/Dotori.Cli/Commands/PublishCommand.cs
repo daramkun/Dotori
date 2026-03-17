@@ -14,17 +14,26 @@ internal static class PublishCommandFactory
 
         var projectOption  = new Option<string?>("--project")  { Description = "Path to .dotori or project directory" };
         var registryOption = new Option<string?>("--registry") { Description = "Registry URL" };
+        var prefixOption   = new Option<string?>("--prefix")   { Description = "Local directory to deploy the package into (instead of registry)" };
         var dryRunOption   = new Option<bool>("--dry-run")     { Description = "Validate without uploading" };
 
         command.Add(projectOption);
         command.Add(registryOption);
+        command.Add(prefixOption);
         command.Add(dryRunOption);
 
         command.SetAction(async (parseResult, ct) =>
         {
             var projectArg = parseResult.GetValue(projectOption);
             var regUrl     = parseResult.GetValue(registryOption);
+            var prefix     = parseResult.GetValue(prefixOption);
             var dryRun     = parseResult.GetValue(dryRunOption);
+
+            if (regUrl is not null && prefix is not null)
+            {
+                Console.Error.WriteLine("error: --registry and --prefix are mutually exclusive");
+                return;
+            }
 
             // .dotori 파일 찾기
             var dotoriPath = FindDotoriFile(projectArg);
@@ -87,20 +96,32 @@ internal static class PublishCommandFactory
                     return;
                 }
 
-                // 업로드
-                var regConfig = DotoriConfigManager.Load().GetRegistry(regUrl);
-                if (regConfig.Token is null)
+                if (prefix is not null)
                 {
-                    Console.Error.WriteLine($"error: not logged in. Run 'dotori login' first");
-                    return;
+                    // 로컬 prefix 디렉토리에 배포
+                    var destDir = Path.Combine(Path.GetFullPath(prefix), pkgName, pkgVersion);
+                    Directory.CreateDirectory(destDir);
+                    var destFile = Path.Combine(destDir, $"{pkgName}-{pkgVersion}.dotori-pkg");
+                    File.Copy(tmpPath, destFile, overwrite: true);
+                    Console.WriteLine($"Successfully published {pkgName} v{pkgVersion} → {destFile}");
                 }
+                else
+                {
+                    // 레지스트리에 업로드
+                    var regConfig = DotoriConfigManager.Load().GetRegistry(regUrl);
+                    if (regConfig.Token is null)
+                    {
+                        Console.Error.WriteLine($"error: not logged in. Run 'dotori login' first");
+                        return;
+                    }
 
-                using var client = new RegistryClient(regConfig.Url, regConfig.Token);
-                await using var archiveStream = new FileStream(tmpPath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                    bufferSize: 81920, useAsync: true);
-                await client.PublishAsync(archiveStream, $"{pkgName}-{pkgVersion}.dotori-pkg", ct);
+                    using var client = new RegistryClient(regConfig.Url, regConfig.Token);
+                    await using var archiveStream = new FileStream(tmpPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                        bufferSize: 81920, useAsync: true);
+                    await client.PublishAsync(archiveStream, $"{pkgName}-{pkgVersion}.dotori-pkg", ct);
 
-                Console.WriteLine($"Successfully published {pkgName} v{pkgVersion}!");
+                    Console.WriteLine($"Successfully published {pkgName} v{pkgVersion}!");
+                }
             }
             finally
             {

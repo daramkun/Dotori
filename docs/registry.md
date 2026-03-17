@@ -251,7 +251,14 @@ dotori publish
 
 # 특정 레지스트리에 배포
 dotori publish --registry https://registry.internal.example.com
+
+# 레지스트리 대신 로컬 디렉토리에 배포
+# → <prefix>/<name>/<version>/<name>-<version>.dotori-pkg
+dotori publish --prefix ./local-repo
+dotori publish --prefix /shared/packages
 ```
+
+`--prefix` 옵션을 사용하면 레지스트리 로그인 없이 로컬 또는 네트워크 공유 디렉토리에 패키지를 배포할 수 있습니다. 사내 네트워크 공유나 CI 아티팩트 저장에 활용할 수 있습니다.
 
 ### 패키지 의존성 추가
 

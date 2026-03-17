@@ -283,7 +283,20 @@ dotori logout
 ```bash
 dotori publish
 dotori publish --registry https://my.registry.example.com
+
+# 레지스트리 대신 로컬 디렉토리에 배포
+dotori publish --prefix ./local-repo
+dotori publish --prefix /opt/packages
 ```
+
+| 옵션 | 설명 |
+|------|------|
+| `--project <경로>` | `.dotori` 파일 또는 프로젝트 디렉토리 경로 |
+| `--registry <URL>` | 배포할 레지스트리 URL (기본값: 설정 파일의 기본 레지스트리) |
+| `--prefix <경로>` | 레지스트리 대신 로컬 디렉토리에 배포. `<prefix>/<name>/<version>/` 구조로 저장 |
+| `--dry-run` | 아카이브만 생성하고 업로드·복사 없이 종료 |
+
+`--registry`와 `--prefix`는 동시에 사용할 수 없습니다.
 
 ### search — 패키지 검색
 
