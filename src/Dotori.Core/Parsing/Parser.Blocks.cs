@@ -9,8 +9,10 @@ public sealed partial class Parser
         Consume(); // "sources" or "modules"
         Expect(TokenKind.LBrace);
         var block = new SourcesBlock(isModules) { Location = loc };
-        while (Current.Kind == TokenKind.Ident)
+        while (true)
         {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
             if (Current.Text == "include" || Current.Text == "exclude")
             {
                 var isInclude = Consume().Text == "include";
@@ -28,6 +30,7 @@ public sealed partial class Parser
                 break;
             }
         }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return block;
     }
@@ -39,13 +42,17 @@ public sealed partial class Parser
         Consume(); // "headers"
         Expect(TokenKind.LBrace);
         var block = new HeadersBlock { Location = loc };
-        while (Current.Kind == TokenKind.Ident &&
-               (Current.Text == "public" || Current.Text == "private"))
+        while (true)
         {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident ||
+                (Current.Text != "public" && Current.Text != "private"))
+                break;
             var isPublic = Consume().Text == "public";
             var path = Expect(TokenKind.String).Text;
             block.Items.Add(new HeaderItem(isPublic, path));
         }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return block;
     }
@@ -56,8 +63,13 @@ public sealed partial class Parser
     {
         Expect(TokenKind.LBrace);
         var list = new List<string>();
-        while (Current.Kind == TokenKind.String || Current.Kind == TokenKind.Ident)
+        while (true)
+        {
+            SkipComments();
+            if (Current.Kind != TokenKind.String && Current.Kind != TokenKind.Ident) break;
             list.Add(Consume().Text);
+        }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return list;
     }
@@ -102,8 +114,13 @@ public sealed partial class Parser
         Consume(); // "emscripten-flags"
         Expect(TokenKind.LBrace);
         var flags = new List<string>();
-        while (Current.Kind == TokenKind.String)
+        while (true)
+        {
+            SkipComments();
+            if (Current.Kind != TokenKind.String) break;
             flags.Add(Consume().Text);
+        }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return new EmscriptenFlagsProp(flags) { Location = loc };
     }
@@ -125,8 +142,10 @@ public sealed partial class Parser
         Consume(); // "dependencies"
         Expect(TokenKind.LBrace);
         var block = new DependenciesBlock { Location = loc };
-        while (Current.Kind == TokenKind.Ident)
+        while (true)
         {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
             var ownerOrName = Consume().Text;
             string name;
             if (Current.Kind == TokenKind.Slash)
@@ -143,6 +162,7 @@ public sealed partial class Parser
             var value = ParseDepValue();
             block.Items.Add(new DependencyItem(name, value));
         }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return block;
     }
@@ -180,8 +200,10 @@ public sealed partial class Parser
         Consume(); // "pch"
         Expect(TokenKind.LBrace);
         var block = new PchBlock { Location = loc };
-        while (Current.Kind == TokenKind.Ident)
+        while (true)
         {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
             var key = Consume().Text;
             Expect(TokenKind.Equals);
             switch (key)
@@ -192,6 +214,7 @@ public sealed partial class Parser
                 default: throw new ParseException($"Unknown pch option '{key}'", Current.Location);
             }
         }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return block;
     }
@@ -203,8 +226,10 @@ public sealed partial class Parser
         Consume(); // "unity-build"
         Expect(TokenKind.LBrace);
         var block = new UnityBuildBlock { Location = loc };
-        while (Current.Kind == TokenKind.Ident)
+        while (true)
         {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
             var key = Consume().Text;
             switch (key)
             {
@@ -225,6 +250,7 @@ public sealed partial class Parser
                 default: throw new ParseException($"Unknown unity-build option '{key}'", Current.Location);
             }
         }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return block;
     }
@@ -236,8 +262,10 @@ public sealed partial class Parser
         Consume(); // "output"
         Expect(TokenKind.LBrace);
         var block = new OutputBlock { Location = loc };
-        while (Current.Kind == TokenKind.Ident)
+        while (true)
         {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
             var key = Consume().Text;
             Expect(TokenKind.Equals);
             switch (key)
@@ -248,6 +276,7 @@ public sealed partial class Parser
                 default: throw new ParseException($"Unknown output option '{key}'", Current.Location);
             }
         }
+        SkipComments();
         Expect(TokenKind.RBrace);
         return block;
     }
@@ -261,16 +290,26 @@ public sealed partial class Parser
         if (isPost)
         {
             var block = new PostBuildBlock { Location = loc };
-            while (Current.Kind == TokenKind.String)
+            while (true)
+            {
+                SkipComments();
+                if (Current.Kind != TokenKind.String) break;
                 block.Commands.Add(Consume().Text);
+            }
+            SkipComments();
             Expect(TokenKind.RBrace);
             return block;
         }
         else
         {
             var block = new PreBuildBlock { Location = loc };
-            while (Current.Kind == TokenKind.String)
+            while (true)
+            {
+                SkipComments();
+                if (Current.Kind != TokenKind.String) break;
                 block.Commands.Add(Consume().Text);
+            }
+            SkipComments();
             Expect(TokenKind.RBrace);
             return block;
         }

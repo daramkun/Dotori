@@ -4,7 +4,7 @@ namespace Dotori.Core.Parsing;
 
 /// <summary>
 /// Formats a parsed <see cref="DotoriFile"/> AST back into canonical .dotori source text.
-/// Comments in the original file are not preserved (they are stripped during lexing).
+/// Uses <c>#</c> for comments regardless of the original comment syntax.
 /// </summary>
 public static class DotoriFormatter
 {
@@ -14,16 +14,26 @@ public static class DotoriFormatter
     public static string Format(DotoriFile file)
     {
         var sb = new StringBuilder();
-        bool hasProject = file.Project is not null;
+        bool hasContent = false;
 
         if (file.Project is not null)
+        {
             FormatProject(sb, file.Project);
+            hasContent = true;
+        }
 
         if (file.Package is not null)
         {
-            if (hasProject)
-                sb.AppendLine();
+            if (hasContent) sb.AppendLine();
             FormatPackage(sb, file.Package);
+            hasContent = true;
+        }
+
+        if (file.TrailingComments.Count > 0)
+        {
+            if (hasContent) sb.AppendLine();
+            foreach (var c in file.TrailingComments)
+                sb.AppendLine($"# {c}");
         }
 
         return sb.ToString();
@@ -39,6 +49,10 @@ public static class DotoriFormatter
         return $"\"{escaped}\"";
     }
 
+    /// <summary>
+    /// Returns true if <paramref name="item"/> is a simple key=value property
+    /// (not a block, not a comment, not a condition).
+    /// </summary>
     private static bool IsProp(ProjectItem item) => item is
         ProjectTypeProp or StdProp or DescriptionProp or OptimizeProp or
         DebugInfoProp or RuntimeLinkProp or LibcProp or StdlibProp or
@@ -51,6 +65,9 @@ public static class DotoriFormatter
 
     private static void FormatProject(StringBuilder sb, ProjectDecl project)
     {
+        foreach (var c in project.LeadingComments)
+            sb.AppendLine($"# {c}");
+
         sb.AppendLine($"project {project.Name} {{");
         AppendProjectItems(sb, project.Items, 1);
         sb.AppendLine("}");
@@ -58,23 +75,46 @@ public static class DotoriFormatter
 
     private static void AppendProjectItems(StringBuilder sb, List<ProjectItem> items, int indent)
     {
-        bool prevWasProp = false;
-        bool firstItem   = true;
+        int i          = 0;
+        bool firstGroup = true;
 
-        foreach (var item in items)
+        while (i < items.Count)
         {
-            bool isProp = IsProp(item);
-
-            if (!firstItem)
+            // Collect consecutive CommentItems that precede the next real item
+            var comments = new List<string>();
+            while (i < items.Count && items[i] is CommentItem c)
             {
-                // No blank line between consecutive props; blank line otherwise
-                if (!(isProp && prevWasProp))
+                comments.Add(c.Text);
+                i++;
+            }
+
+            // Peek at the next real item (if any)
+            ProjectItem? realItem = i < items.Count ? items[i] : null;
+
+            // ── Blank line logic ─────────────────────────────────────────────
+            // No blank line is inserted before the very first group.
+            // A blank line is inserted before any group that has leading comments
+            // OR whose real item is a non-prop (block/condition).
+            // Consecutive props without leading comments are grouped together.
+            if (!firstGroup)
+            {
+                bool nextIsPropWithNoComments = realItem is not null && IsProp(realItem) && comments.Count == 0;
+                if (!nextIsPropWithNoComments)
                     sb.AppendLine();
             }
 
-            FormatProjectItem(sb, item, indent);
-            prevWasProp = isProp;
-            firstItem   = false;
+            // Emit leading comments
+            foreach (var comment in comments)
+                sb.AppendLine($"{I(indent)}# {comment}");
+
+            // Emit the real item (if any)
+            if (realItem is not null)
+            {
+                FormatProjectItem(sb, realItem, indent);
+                i++;
+            }
+
+            firstGroup = false;
         }
     }
 
@@ -82,6 +122,9 @@ public static class DotoriFormatter
     {
         switch (item)
         {
+            case CommentItem c:
+                sb.AppendLine($"{I(indent)}# {c.Text}");
+                break;
             case ProjectTypeProp p:
                 sb.AppendLine($"{I(indent)}type = {FormatProjectType(p.Value)}");
                 break;
@@ -301,27 +344,76 @@ public static class DotoriFormatter
 
     private static void FormatPackage(StringBuilder sb, PackageDecl package)
     {
+        foreach (var c in package.LeadingComments)
+            sb.AppendLine($"# {c}");
+
         sb.AppendLine("package {");
-        if (package.Name        is not null) sb.AppendLine($"    name = {QuoteString(package.Name)}");
-        if (package.Version     is not null) sb.AppendLine($"    version = {QuoteString(package.Version)}");
-        if (package.Description is not null) sb.AppendLine($"    description = {QuoteString(package.Description)}");
-        if (package.License     is not null) sb.AppendLine($"    license = {QuoteString(package.License)}");
-        if (package.Homepage    is not null) sb.AppendLine($"    homepage = {QuoteString(package.Homepage)}");
-        if (package.Authors.Count > 0)
+
+        // If BodyItems was populated by the parser, use it to preserve order + comments
+        if (package.BodyItems.Count > 0)
         {
-            sb.AppendLine("    authors {");
-            foreach (var a in package.Authors)
-                sb.AppendLine($"        {QuoteString(a)}");
-            sb.AppendLine("    }");
+            foreach (var item in package.BodyItems)
+            {
+                switch (item)
+                {
+                    case PackageCommentItem c:
+                        sb.AppendLine($"    # {c.Text}");
+                        break;
+                    case PackageFieldItem f:
+                        AppendPackageField(sb, package, f.FieldName);
+                        break;
+                }
+            }
         }
-        if (package.Exports.Count > 0)
+        else
         {
-            sb.AppendLine("    exports {");
-            foreach (var (k, v) in package.Exports)
-                sb.AppendLine($"        {k} = {QuoteString(v)}");
-            sb.AppendLine("    }");
+            // Fallback for programmatically-constructed PackageDecl (no BodyItems)
+            if (package.Name        is not null) sb.AppendLine($"    name = {QuoteString(package.Name)}");
+            if (package.Version     is not null) sb.AppendLine($"    version = {QuoteString(package.Version)}");
+            if (package.Description is not null) sb.AppendLine($"    description = {QuoteString(package.Description)}");
+            if (package.License     is not null) sb.AppendLine($"    license = {QuoteString(package.License)}");
+            if (package.Homepage    is not null) sb.AppendLine($"    homepage = {QuoteString(package.Homepage)}");
+            if (package.Authors.Count > 0)
+            {
+                sb.AppendLine("    authors {");
+                foreach (var a in package.Authors)
+                    sb.AppendLine($"        {QuoteString(a)}");
+                sb.AppendLine("    }");
+            }
+            if (package.Exports.Count > 0)
+            {
+                sb.AppendLine("    exports {");
+                foreach (var (k, v) in package.Exports)
+                    sb.AppendLine($"        {k} = {QuoteString(v)}");
+                sb.AppendLine("    }");
+            }
         }
+
         sb.AppendLine("}");
+    }
+
+    private static void AppendPackageField(StringBuilder sb, PackageDecl package, string fieldName)
+    {
+        switch (fieldName)
+        {
+            case "name"        when package.Name        is not null: sb.AppendLine($"    name = {QuoteString(package.Name)}"); break;
+            case "version"     when package.Version     is not null: sb.AppendLine($"    version = {QuoteString(package.Version)}"); break;
+            case "description" when package.Description is not null: sb.AppendLine($"    description = {QuoteString(package.Description)}"); break;
+            case "license"     when package.License     is not null: sb.AppendLine($"    license = {QuoteString(package.License)}"); break;
+            case "homepage"    when package.Homepage    is not null: sb.AppendLine($"    homepage = {QuoteString(package.Homepage)}"); break;
+            case "authors" when package.Authors.Count > 0:
+                sb.AppendLine("    authors {");
+                foreach (var a in package.Authors)
+                    sb.AppendLine($"        {QuoteString(a)}");
+                sb.AppendLine("    }");
+                break;
+            case "exports" when package.Exports.Count > 0:
+                sb.AppendLine("    exports {");
+                foreach (var (k, v) in package.Exports)
+                    sb.AppendLine($"        {k} = {QuoteString(v)}");
+                sb.AppendLine("    }");
+                break;
+        }
     }
 
     // ─── Enum formatters ────────────────────────────────────────────────────

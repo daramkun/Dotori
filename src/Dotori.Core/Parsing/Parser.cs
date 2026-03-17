@@ -52,6 +52,29 @@ public sealed partial class Parser
         return false;
     }
 
+    /// <summary>
+    /// Consumes all consecutive <see cref="TokenKind.Comment"/> tokens and returns their texts.
+    /// Used to collect leading comments before a declaration or project item.
+    /// </summary>
+    private List<string> ConsumeComments()
+    {
+        var comments = new List<string>();
+        while (Current.Kind == TokenKind.Comment)
+            comments.Add(Consume().Text);
+        return comments;
+    }
+
+    /// <summary>
+    /// Skips (discards) all consecutive <see cref="TokenKind.Comment"/> tokens.
+    /// Used inside inner blocks (sources, defines, etc.) where comments cannot be
+    /// meaningfully attached to a typed sub-item.
+    /// </summary>
+    private void SkipComments()
+    {
+        while (Current.Kind == TokenKind.Comment)
+            Consume();
+    }
+
     // ─── Entry ─────────────────────────────────────────────────────────────
 
     public DotoriFile ParseFile()
@@ -59,19 +82,24 @@ public sealed partial class Parser
         ProjectDecl? project = null;
         PackageDecl? package = null;
 
+        // Collect any leading comments; they will be attached to the first declaration
+        var pendingComments = ConsumeComments();
+
         while (Current.Kind != TokenKind.Eof)
         {
             if (Current.Kind == TokenKind.Ident && Current.Text == "project")
             {
                 if (project != null)
                     throw new ParseException("Duplicate 'project' declaration", Current.Location);
-                project = ParseProject();
+                project = ParseProject(pendingComments);
+                pendingComments = ConsumeComments();
             }
             else if (Current.Kind == TokenKind.Ident && Current.Text == "package")
             {
                 if (package != null)
                     throw new ParseException("Duplicate 'package' declaration", Current.Location);
-                package = ParsePackage();
+                package = ParsePackage(pendingComments);
+                pendingComments = ConsumeComments();
             }
             else
             {
@@ -81,17 +109,20 @@ public sealed partial class Parser
             }
         }
 
-        return new DotoriFile
+        var file = new DotoriFile
         {
             FilePath = _filePath,
-            Project = project,
-            Package = package,
+            Project  = project,
+            Package  = package,
         };
+        // Any comments after the last declaration become trailing file comments
+        file.TrailingComments.AddRange(pendingComments);
+        return file;
     }
 
     // ─── Project ───────────────────────────────────────────────────────────
 
-    private ProjectDecl ParseProject()
+    private ProjectDecl ParseProject(List<string> leadingComments)
     {
         var loc = Current.Location;
         Expect(TokenKind.Ident); // "project"
@@ -99,6 +130,7 @@ public sealed partial class Parser
         Expect(TokenKind.LBrace);
 
         var decl = new ProjectDecl { Location = loc, Name = name };
+        decl.LeadingComments.AddRange(leadingComments);
 
         while (Current.Kind != TokenKind.RBrace && Current.Kind != TokenKind.Eof)
         {
@@ -111,6 +143,14 @@ public sealed partial class Parser
 
     private ProjectItem ParseProjectItem()
     {
+        // Inline comment line
+        if (Current.Kind == TokenKind.Comment)
+        {
+            var commentLoc  = Current.Location;
+            var commentText = Consume().Text;
+            return new CommentItem(commentText) { Location = commentLoc };
+        }
+
         // Condition block: [windows] { ... }
         if (Current.Kind == TokenKind.LBracket)
             return ParseConditionBlock();
@@ -176,6 +216,7 @@ public sealed partial class Parser
 
         Expect(TokenKind.LBrace);
         var block = new ConditionBlock(new ConditionExpr(atoms)) { Location = loc };
+        // ParseProjectItem handles Comment tokens directly
         while (Current.Kind != TokenKind.RBrace && Current.Kind != TokenKind.Eof)
             block.Items.Add(ParseProjectItem());
         Expect(TokenKind.RBrace);
@@ -184,20 +225,33 @@ public sealed partial class Parser
 
     // ─── Package ───────────────────────────────────────────────────────────
 
-    private PackageDecl ParsePackage()
+    private PackageDecl ParsePackage(List<string> leadingComments)
     {
         var loc = Current.Location;
         Expect(TokenKind.Ident); // "package"
         Expect(TokenKind.LBrace);
 
         var decl = new PackageDecl { Location = loc };
+        decl.LeadingComments.AddRange(leadingComments);
 
         while (Current.Kind != TokenKind.RBrace && Current.Kind != TokenKind.Eof)
         {
+            // Comment inside package block
+            if (Current.Kind == TokenKind.Comment)
+            {
+                var commentLoc  = Current.Location;
+                var commentText = Consume().Text;
+                decl.BodyItems.Add(new PackageCommentItem(commentText) { Location = commentLoc });
+                continue;
+            }
+
             if (Current.Kind != TokenKind.Ident)
                 throw new ParseException($"Expected identifier in package block", Current.Location);
 
-            var key = Consume().Text;
+            var fieldLoc = Current.Location;
+            var key      = Consume().Text;
+            decl.BodyItems.Add(new PackageFieldItem(key) { Location = fieldLoc });
+
             switch (key)
             {
                 case "name":

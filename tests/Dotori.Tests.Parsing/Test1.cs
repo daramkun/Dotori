@@ -27,19 +27,32 @@ public sealed class LexerTests
     }
 
     [TestMethod]
-    public void Lexer_BlockComment_Skipped()
+    public void Lexer_BlockComment_EmitsCommentToken()
     {
         var tokens = new Lexer("(* this is a comment *) project", "<test>").Tokenize();
-        Assert.AreEqual(TokenKind.Ident, tokens[0].Kind);
-        Assert.AreEqual("project",        tokens[0].Text);
+        Assert.AreEqual(TokenKind.Comment, tokens[0].Kind);
+        Assert.AreEqual("this is a comment", tokens[0].Text);
+        Assert.AreEqual(TokenKind.Ident, tokens[1].Kind);
+        Assert.AreEqual("project",        tokens[1].Text);
     }
 
     [TestMethod]
-    public void Lexer_NestedBlockComment_Skipped()
+    public void Lexer_NestedBlockComment_EmitsCommentToken()
     {
         var tokens = new Lexer("(* outer (* inner *) *) foo", "<test>").Tokenize();
-        Assert.AreEqual(TokenKind.Ident, tokens[0].Kind);
-        Assert.AreEqual("foo",            tokens[0].Text);
+        // nested (* inner *) is treated as part of the content; outer comment text = "outer (* inner *)"
+        Assert.AreEqual(TokenKind.Comment, tokens[0].Kind);
+        Assert.AreEqual(TokenKind.Ident, tokens[1].Kind);
+        Assert.AreEqual("foo", tokens[1].Text);
+    }
+
+    [TestMethod]
+    public void Lexer_LineComment_Hash_EmitsCommentToken()
+    {
+        var tokens = new Lexer("# this is a line comment\nproject", "<test>").Tokenize();
+        Assert.AreEqual(TokenKind.Comment, tokens[0].Kind);
+        Assert.AreEqual("this is a line comment", tokens[0].Text);
+        Assert.AreEqual(TokenKind.Ident, tokens[1].Kind);
     }
 
     [TestMethod]

@@ -9,6 +9,9 @@ public enum TokenKind
     BoolTrue,       // true
     BoolFalse,      // false
 
+    // Comment (# text  or  (* text *)  or  // text)
+    Comment,        // text content after stripping delimiter
+
     // Punctuation
     LBrace,         // {
     RBrace,         // }
@@ -58,40 +61,10 @@ public sealed class Lexer
         _pos++;
     }
 
-    private void SkipWhitespaceAndComments()
+    private void SkipWhitespace()
     {
-        while (_pos < _source.Length)
-        {
-            // whitespace
-            if (char.IsWhiteSpace(Current)) { Advance(); continue; }
-
-            // (* ... *) block comment (nestable)
-            if (Current == '(' && Peek() == '*')
-            {
-                Advance(); Advance(); // consume (*
-                int depth = 1;
-                while (_pos < _source.Length && depth > 0)
-                {
-                    if (Current == '(' && Peek() == '*') { Advance(); Advance(); depth++; }
-                    else if (Current == '*' && Peek() == ')') { Advance(); Advance(); depth--; }
-                    else { Advance(); }
-                }
-                continue;
-            }
-
-            // // line comment
-            if (Current == '/' && Peek() == '/')
-            {
-                while (_pos < _source.Length && Current != '\n') Advance();
-                continue;
-            }
-
-            // / slash (dep_name: owner/package)
-            if (Current == '/')
-                break;
-
-            break;
-        }
+        while (_pos < _source.Length && char.IsWhiteSpace(Current))
+            Advance();
     }
 
     public List<Token> Tokenize()
@@ -99,7 +72,7 @@ public sealed class Lexer
         var tokens = new List<Token>();
         while (true)
         {
-            SkipWhitespaceAndComments();
+            SkipWhitespace();
             if (_pos >= _source.Length)
             {
                 tokens.Add(new Token(TokenKind.Eof, "", Here));
@@ -108,6 +81,32 @@ public sealed class Lexer
 
             var loc = Here;
             var ch = Current;
+
+            // ── # line comment ────────────────────────────────────────────────
+            if (ch == '#')
+            {
+                Advance(); // consume '#'
+                var text = ReadLineRest().Trim();
+                tokens.Add(new Token(TokenKind.Comment, text, loc));
+                continue;
+            }
+
+            // ── // line comment ───────────────────────────────────────────────
+            if (ch == '/' && Peek() == '/')
+            {
+                Advance(); Advance(); // consume '//'
+                var text = ReadLineRest().Trim();
+                tokens.Add(new Token(TokenKind.Comment, text, loc));
+                continue;
+            }
+
+            // ── (* ... *) block comment (nestable, backward-compat) ───────────
+            if (ch == '(' && Peek() == '*')
+            {
+                Advance(); Advance(); // consume '(*'
+                tokens.AddRange(ReadBlockComment(loc));
+                continue;
+            }
 
             switch (ch)
             {
@@ -138,9 +137,9 @@ public sealed class Lexer
                         var ident = ReadIdent();
                         var kind = ident switch
                         {
-                            "true" => TokenKind.BoolTrue,
+                            "true"  => TokenKind.BoolTrue,
                             "false" => TokenKind.BoolFalse,
-                            _ => TokenKind.Ident,
+                            _       => TokenKind.Ident,
                         };
                         tokens.Add(new Token(kind, ident, loc));
                     }
@@ -154,6 +153,43 @@ public sealed class Lexer
         return tokens;
     }
 
+    /// <summary>Reads the rest of the current line (not including the newline).</summary>
+    private string ReadLineRest()
+    {
+        var start = _pos;
+        while (_pos < _source.Length && Current != '\n')
+            Advance();
+        return _source.Substring(start, _pos - start);
+    }
+
+    /// <summary>
+    /// Reads a nestable <c>(*...*)&gt;</c> block comment and returns one
+    /// <see cref="TokenKind.Comment"/> token per non-empty content line.
+    /// Called after the opening <c>(*</c> has already been consumed.
+    /// </summary>
+    private IEnumerable<Token> ReadBlockComment(SourceLocation loc)
+    {
+        var sb = new System.Text.StringBuilder();
+        int depth = 1;
+        while (_pos < _source.Length && depth > 0)
+        {
+            if (Current == '(' && Peek() == '*') { Advance(); Advance(); depth++; sb.Append("(*"); }
+            else if (Current == '*' && Peek() == ')') { Advance(); Advance(); depth--; if (depth > 0) sb.Append("*)"); }
+            else { sb.Append(Current); Advance(); }
+        }
+
+        // Split into lines, trim each, drop empty leading/trailing lines
+        var lines = sb.ToString()
+                      .Split('\n')
+                      .Select(l => l.Trim())
+                      .ToList();
+
+        while (lines.Count > 0 && string.IsNullOrEmpty(lines[0]))   lines.RemoveAt(0);
+        while (lines.Count > 0 && string.IsNullOrEmpty(lines[^1])) lines.RemoveAt(lines.Count - 1);
+
+        return lines.Select(l => new Token(TokenKind.Comment, l, loc));
+    }
+
     private string ReadString(SourceLocation loc)
     {
         Advance(); // consume opening "
@@ -165,12 +201,12 @@ public sealed class Lexer
                 Advance();
                 var escaped = Current switch
                 {
-                    'n' => '\n',
-                    'r' => '\r',
-                    't' => '\t',
-                    '"' => '"',
+                    'n'  => '\n',
+                    'r'  => '\r',
+                    't'  => '\t',
+                    '"'  => '"',
                     '\\' => '\\',
-                    _ => throw new LexerException($"Unknown escape sequence '\\{Current}'", Here),
+                    _    => throw new LexerException($"Unknown escape sequence '\\{Current}'", Here),
                 };
                 sb.Append(escaped);
                 Advance();

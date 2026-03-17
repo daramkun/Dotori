@@ -1,4 +1,4 @@
-(* Simple executable project *)
+# Simple executable project
 project MyApp {
     type        = executable
     std         = c++23

@@ -14,6 +14,8 @@ public sealed class DotoriFile
     public required string FilePath { get; init; }
     public ProjectDecl? Project { get; init; }
     public PackageDecl? Package { get; init; }
+    /// <summary>Comments that appear after the last top-level declaration (trailing).</summary>
+    public List<string> TrailingComments { get; } = new();
 }
 
 // ─── Project declaration ───────────────────────────────────────────────────
@@ -23,12 +25,20 @@ public sealed class ProjectDecl
     public required SourceLocation Location { get; init; }
     public required string Name { get; init; }
     public List<ProjectItem> Items { get; } = new();
+    /// <summary>Comments that appear before the <c>project</c> keyword.</summary>
+    public List<string> LeadingComments { get; } = new();
 }
 
 /// <summary>Base class for all items that can appear inside a project block.</summary>
 public abstract class ProjectItem
 {
     public required SourceLocation Location { get; init; }
+}
+
+/// <summary>A <c># comment</c> line inside a project or condition block.</summary>
+public sealed class CommentItem(string text) : ProjectItem
+{
+    public string Text { get; } = text;
 }
 
 // Props
@@ -253,6 +263,24 @@ public sealed class ConditionExpr(IReadOnlyList<string> atoms)
 
 // ─── Package declaration ───────────────────────────────────────────────────
 
+/// <summary>Base class for items inside a <c>package { }</c> block (for formatter use).</summary>
+public abstract class PackageBodyItem
+{
+    public required SourceLocation Location { get; init; }
+}
+
+/// <summary>A named field inside a <c>package { }</c> block (e.g. <c>name</c>, <c>version</c>).</summary>
+public sealed class PackageFieldItem(string fieldName) : PackageBodyItem
+{
+    public string FieldName { get; } = fieldName;
+}
+
+/// <summary>A <c># comment</c> line inside a <c>package { }</c> block.</summary>
+public sealed class PackageCommentItem(string text) : PackageBodyItem
+{
+    public string Text { get; } = text;
+}
+
 public sealed class PackageDecl
 {
     public required SourceLocation Location { get; init; }
@@ -263,6 +291,13 @@ public sealed class PackageDecl
     public string? Homepage { get; set; }
     public List<string> Authors { get; } = new();
     public Dictionary<string, string> Exports { get; } = new();
+    /// <summary>Comments that appear before the <c>package</c> keyword.</summary>
+    public List<string> LeadingComments { get; } = new();
+    /// <summary>
+    /// Ordered list of fields and comments inside the block, for formatter use.
+    /// Populated by the parser; empty when constructed programmatically.
+    /// </summary>
+    public List<PackageBodyItem> BodyItems { get; } = new();
 }
 
 // ─── Enums ─────────────────────────────────────────────────────────────────
