@@ -60,7 +60,7 @@ public sealed class DbContextTests
             .Include(p => p.Versions)
             .FirstOrDefaultAsync(p => p.Name == "mylib");
         Assert.IsNotNull(loaded);
-        Assert.AreEqual(1, loaded.Versions.Count);
+        Assert.HasCount(1, loaded.Versions);
         Assert.AreEqual("1.0.0", loaded.Versions.First().Version);
     }
 
@@ -97,7 +97,7 @@ public sealed class DbContextTests
             .Where(c => c.PackageId == pkg.Id)
             .ToListAsync();
 
-        Assert.AreEqual(2, collaborators.Count);
+        Assert.HasCount(2, collaborators);
         Assert.IsTrue(collaborators.Any(c => c.Role == "owner"));
         Assert.IsTrue(collaborators.Any(c => c.Role == "collaborator"));
     }

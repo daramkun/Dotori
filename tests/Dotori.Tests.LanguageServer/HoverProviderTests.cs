@@ -83,6 +83,6 @@ public class HoverProviderTests
         Assert.IsNotNull(hover.Range);
         Assert.AreEqual(0, hover.Range!.Start.Line);
         Assert.AreEqual(0, hover.Range.End.Line);
-        Assert.IsTrue(hover.Range.End.Character > hover.Range.Start.Character);
+        Assert.IsGreaterThan(hover.Range.Start.Character, hover.Range.End.Character);
     }
 }

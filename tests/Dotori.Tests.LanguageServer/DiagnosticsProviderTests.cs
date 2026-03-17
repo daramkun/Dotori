@@ -18,7 +18,7 @@ public class DiagnosticsProviderTests
 
         var diags = DiagnosticsProvider.Analyze(source, "<test>");
 
-        Assert.AreEqual(0, diags.Count);
+        Assert.IsEmpty(diags);
     }
 
     [TestMethod]
@@ -28,7 +28,7 @@ public class DiagnosticsProviderTests
 
         var diags = DiagnosticsProvider.Analyze(source, "<test>");
 
-        Assert.IsTrue(diags.Count > 0, "Should have at least one diagnostic for parse error");
+        Assert.IsNotEmpty(diags, "Should have at least one diagnostic for parse error");
         Assert.AreEqual(1, diags[0].Severity, "Parse errors should have Error severity");
         Assert.AreEqual("dotori", diags[0].Source);
     }
@@ -41,7 +41,7 @@ public class DiagnosticsProviderTests
 
         var diags = DiagnosticsProvider.Analyze(source, "<test>");
 
-        Assert.IsTrue(diags.Count > 0);
+        Assert.IsNotEmpty(diags);
         Assert.AreEqual(1, diags[0].Severity);
         Assert.AreEqual("dotori", diags[0].Source);
     }
@@ -105,9 +105,9 @@ public class DiagnosticsProviderTests
 
         var diags = DiagnosticsProvider.Analyze(source, "<test>");
 
-        Assert.IsTrue(diags.Count > 0);
+        Assert.IsNotEmpty(diags);
         // LSP line is 0-indexed, parser is 1-indexed
-        Assert.IsTrue(diags[0].Range.Start.Line >= 0, "Line should be non-negative (0-indexed)");
+        Assert.IsGreaterThanOrEqualTo(0, diags[0].Range.Start.Line, "Line should be non-negative (0-indexed)");
     }
 
     [TestMethod]

@@ -115,7 +115,7 @@ public sealed class RunScriptsTests
 
         Assert.IsTrue(File.Exists(outFile));
         var content = File.ReadAllText(outFile).Trim();
-        Assert.IsTrue(content.Contains("macos-arm64"),
+        Assert.Contains("macos-arm64", content,
             $"Expected 'macos-arm64' in output but got: '{content}'");
     }
 
@@ -133,7 +133,7 @@ public sealed class RunScriptsTests
             [cmd], _tempDir, "linux-x64", "release", _tempDir);
 
         var content = File.ReadAllText(outFile).Trim();
-        Assert.IsTrue(content.Contains("release"),
+        Assert.Contains("release", content,
             $"Expected 'release' in output but got: '{content}'");
     }
 
@@ -182,8 +182,8 @@ public sealed class RunScriptsTests
 
         Assert.AreEqual(0, code);
         var lines = File.ReadAllLines(outFile);
-        Assert.IsTrue(lines.Length >= 2);
-        Assert.IsTrue(lines[0].Trim() == "first");
-        Assert.IsTrue(lines[1].Trim() == "second");
+        Assert.IsGreaterThanOrEqualTo(lines.Length, 2);
+        Assert.AreEqual("first", lines[0].Trim());
+        Assert.AreEqual("second", lines[1].Trim());
     }
 }

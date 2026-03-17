@@ -77,7 +77,7 @@ public sealed class OwnerNameDepTests
             """);
 
         var deps = proj.Items.OfType<DependenciesBlock>().Single().Items;
-        Assert.AreEqual(3, deps.Count);
+        Assert.HasCount(3, deps);
         Assert.AreEqual("fmtlib/fmt", deps[0].Name);
         Assert.AreEqual("locallib", deps[1].Name);
         Assert.AreEqual("myorg/spdlog", deps[2].Name);

@@ -65,7 +65,7 @@ public sealed class CopyArtifactsTests
 
         // Must not throw and must not create any new files
         planner.CopyArtifacts(exePath);
-        Assert.AreEqual(1, Directory.GetFiles(_tempDir).Length);  // only the original
+        Assert.HasCount(1, Directory.GetFiles(_tempDir));  // only the original
     }
 
     [TestMethod]
@@ -304,8 +304,8 @@ public sealed class ModuleMapWriterTests
         var names = Enumerable.Range(0, 2)
             .Select(i => modules[i].GetProperty("logical-name").GetString())
             .ToHashSet();
-        Assert.IsTrue(names.Contains("ModA"));
-        Assert.IsTrue(names.Contains("ModB"));
+        Assert.Contains("ModA", names);
+        Assert.Contains("ModB", names);
     }
 
     [TestMethod]
@@ -322,8 +322,8 @@ public sealed class ModuleMapWriterTests
         ModuleMapWriter.Write([MakeJob(srcFile, bmiFile)], "linux-x64", "debug", bmiDir);
 
         var content = File.ReadAllText(mapPath);
-        Assert.IsFalse(content.StartsWith("old"));
-        Assert.IsTrue(content.Contains("NewMod"));
+        Assert.DoesNotStartWith("old", content);
+        Assert.Contains("NewMod", content);
     }
 
     private string CreateModuleSource(string content)

@@ -163,9 +163,9 @@ public sealed class LldLinkerTests
         var userFlag1  = flags.ToList().FindIndex(f => f == "-Wl,--as-needed");
         var userFlag2  = flags.ToList().FindIndex(f => f == "-Wl,--gc-sections");
 
-        Assert.IsTrue(targetIdx  >= 0, "Should contain target triple");
-        Assert.IsTrue(userFlag1  > outputIdx,  "User flags should come after dotori flags");
-        Assert.IsTrue(userFlag2  > userFlag1,  "User flags should preserve order");
+        Assert.IsGreaterThanOrEqualTo(0, targetIdx, "Should contain target triple");
+        Assert.IsGreaterThan(outputIdx, userFlag1, "User flags should come after dotori flags");
+        Assert.IsGreaterThan(userFlag1, userFlag2, "User flags should preserve order");
     }
 }
 
@@ -330,7 +330,7 @@ public sealed class AppleLinkerTests
         var outputIdx  = flags.ToList().FindIndex(f => f.StartsWith("-o "));
         var userFlagIdx = flags.ToList().FindIndex(f => f == "-Wl,-rpath,@executable_path/lib");
 
-        Assert.IsTrue(userFlagIdx > outputIdx, "User link flags should come after dotori-generated flags");
+        Assert.IsGreaterThan(outputIdx, userFlagIdx, "User link flags should come after dotori-generated flags");
     }
 }
 
@@ -378,11 +378,11 @@ public sealed class ClangClFlagsTests
         var flags = MsvcDriver.CompileFlags(MakeModel(), toolchain, "debug", "obj");
         var flagStr = string.Join(" ", flags);
 
-        Assert.IsTrue(flagStr.Contains("-imsvc"), "clang-cl compile flags must contain -imsvc for Windows SDK headers");
-        Assert.IsTrue(flagStr.Contains(vcToolsDir), "Should include VcToolsDir include path");
-        Assert.IsTrue(flagStr.Contains("ucrt"), "Should include ucrt include path");
-        Assert.IsTrue(flagStr.Contains("um"),   "Should include um include path");
-        Assert.IsTrue(flagStr.Contains("shared"), "Should include shared include path");
+        Assert.Contains("-imsvc", flagStr, "clang-cl compile flags must contain -imsvc for Windows SDK headers");
+        Assert.Contains(vcToolsDir, flagStr, "Should include VcToolsDir include path");
+        Assert.Contains("ucrt", flagStr, "Should include ucrt include path");
+        Assert.Contains("um",   flagStr, "Should include um include path");
+        Assert.Contains("shared", flagStr, "Should include shared include path");
     }
 
     [TestMethod]
@@ -410,7 +410,7 @@ public sealed class ClangClFlagsTests
         var flags = MsvcDriver.CompileFlags(MakeModel(), toolchain, "debug", "obj");
         var flagStr = string.Join(" ", flags);
 
-        Assert.IsFalse(flagStr.Contains("-imsvc"), "cl.exe should NOT have -imsvc (it finds SDK headers automatically)");
+        Assert.DoesNotContain("-imsvc", flagStr, "cl.exe should NOT have -imsvc (it finds SDK headers automatically)");
     }
 }
 

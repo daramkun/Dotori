@@ -43,8 +43,8 @@ public class LspTransportTests
         output.Seek(0, SeekOrigin.Begin);
         var written = Encoding.UTF8.GetString(output.ToArray());
         var expectedLen = Encoding.UTF8.GetByteCount(body);
-        Assert.IsTrue(written.StartsWith($"Content-Length: {expectedLen}\r\n\r\n"));
-        Assert.IsTrue(written.EndsWith(body));
+        Assert.StartsWith($"Content-Length: {expectedLen}\r\n\r\n", written);
+        Assert.EndsWith(body, written);
     }
 
     [TestMethod]
