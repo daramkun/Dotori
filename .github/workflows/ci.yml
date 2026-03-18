@@ -51,18 +51,34 @@ jobs:
       - name: Collect artifacts
         shell: bash
         run: |
-          mkdir -p dist
-          for src in build/cli build/build_server build/worker; do
-            for f in "$src"/dotori "$src"/dotori.exe \
-                     "$src"/dotori-server "$src"/dotori-server.exe \
-                     "$src"/dotori-worker "$src"/dotori-worker.exe; do
-              if [ -f "$f" ]; then cp "$f" dist/; fi
-            done
+          mkdir -p dist/cli dist/server dist/worker
+          for f in build/cli/dotori build/cli/dotori.exe; do
+            if [ -f "$f" ]; then cp "$f" dist/cli/; fi
+          done
+          for f in build/build_server/dotori-server build/build_server/dotori-server.exe; do
+            if [ -f "$f" ]; then cp "$f" dist/server/; fi
+          done
+          for f in build/worker/dotori-worker build/worker/dotori-worker.exe; do
+            if [ -f "$f" ]; then cp "$f" dist/worker/; fi
           done
 
-      - name: Upload artifact
+      - name: Upload dotori artifact
         uses: actions/upload-artifact@v7
         with:
           name: dotori-${{ matrix.rid }}
-          path: dist/
+          path: dist/cli/
+          retention-days: 7
+
+      - name: Upload dotori-server artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotori-server-${{ matrix.rid }}
+          path: dist/server/
+          retention-days: 7
+
+      - name: Upload dotori-worker artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotori-worker-${{ matrix.rid }}
+          path: dist/worker/
           retention-days: 7

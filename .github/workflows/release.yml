@@ -89,22 +89,39 @@ jobs:
       - name: Collect & zip
         shell: bash
         run: |
-          mkdir -p dist
-          for src in build/cli build/build_server build/worker; do
-            for f in "$src"/dotori "$src"/dotori.exe \
-                     "$src"/dotori-server "$src"/dotori-server.exe \
-                     "$src"/dotori-worker "$src"/dotori-worker.exe; do
-              if [ -f "$f" ]; then cp "$f" dist/; fi
-            done
+          mkdir -p dist/cli dist/server dist/worker
+          for f in build/cli/dotori build/cli/dotori.exe; do
+            if [ -f "$f" ]; then cp "$f" dist/cli/; fi
           done
-          cd dist
-          zip ../dotori-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip *
+          for f in build/build_server/dotori-server build/build_server/dotori-server.exe; do
+            if [ -f "$f" ]; then cp "$f" dist/server/; fi
+          done
+          for f in build/worker/dotori-worker build/worker/dotori-worker.exe; do
+            if [ -f "$f" ]; then cp "$f" dist/worker/; fi
+          done
+          (cd dist/cli    && zip ../../dotori-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip *)
+          (cd dist/server && zip ../../dotori-server-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip *)
+          (cd dist/worker && zip ../../dotori-worker-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip *)
 
-      - name: Upload zip artifact
+      - name: Upload dotori zip artifact
         uses: actions/upload-artifact@v7
         with:
           name: dotori-${{ steps.version.outputs.tag }}-${{ matrix.rid }}
           path: dotori-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip
+          retention-days: 1
+
+      - name: Upload dotori-server zip artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotori-server-${{ steps.version.outputs.tag }}-${{ matrix.rid }}
+          path: dotori-server-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip
+          retention-days: 1
+
+      - name: Upload dotori-worker zip artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotori-worker-${{ steps.version.outputs.tag }}-${{ matrix.rid }}
+          path: dotori-worker-${{ steps.version.outputs.tag }}-${{ matrix.rid }}.zip
           retention-days: 1
 
   # ── 3. GitHub Release 생성 + 에셋 업로드 ───────────────────────────────────
@@ -174,7 +191,7 @@ jobs:
       - name: Download all zip artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: dotori-${{ steps.version.outputs.tag }}-*
+          pattern: dotori*-${{ steps.version.outputs.tag }}-*
           merge-multiple: true
           path: release-assets/
 
