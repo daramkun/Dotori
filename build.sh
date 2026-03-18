@@ -18,7 +18,7 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 error()   { echo -e "${RED}[error]${NC} $*" >&2; }
 
 # 빌드 대상 목록 (--only 옵션으로 필터링 가능)
-ALL_TARGETS=(language_server cli build_server worker registry)
+ALL_TARGETS=(cli build_server worker registry)
 
 # 옵션 파싱
 ONLY_TARGETS=()
@@ -57,7 +57,6 @@ if $SHOW_HELP; then
 
 예시:
   ./build.sh
-  ./build.sh --only cli,language_server
   ./build.sh --only cli,build_server,worker --rid linux-x64
   ./build.sh --only cli,build_server,worker --rid win-x64 --version v1.0.0
   ./build.sh --config Debug
@@ -115,7 +114,7 @@ dotnet_publish() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 1. CLI (NativeAOT)
+# 1. CLI (NativeAOT) — Language Server 포함
 # ──────────────────────────────────────────────────────────────────────────────
 build_cli() {
     dotnet_publish "cli" \
@@ -124,16 +123,7 @@ build_cli() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 2. Language Server
-# ──────────────────────────────────────────────────────────────────────────────
-build_language_server() {
-    dotnet_publish "language_server" \
-        "$REPO_ROOT/src/Dotori.LanguageServer/Dotori.LanguageServer.csproj" \
-        "$BUILD_DIR/language_server"
-}
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 3. Build Server
+# 2. Build Server
 # ──────────────────────────────────────────────────────────────────────────────
 build_build_server() {
     dotnet_publish "build_server" \
@@ -142,7 +132,7 @@ build_build_server() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 4. Worker
+# 3. Worker
 # ──────────────────────────────────────────────────────────────────────────────
 build_worker() {
     dotnet_publish "worker" \
@@ -151,7 +141,7 @@ build_worker() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 5. Registry
+# 4. Registry
 # ──────────────────────────────────────────────────────────────────────────────
 build_registry() {
     dotnet_publish "registry" \

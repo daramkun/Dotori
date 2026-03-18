@@ -8,7 +8,7 @@
     build.sh 와 동일한 옵션 구조를 가집니다.
 
 .PARAMETER Only
-    빌드할 대상을 쉼표로 지정합니다. (예: cli,language_server)
+    빌드할 대상을 쉼표로 지정합니다. (예: cli,build_server)
     생략 시 전체 대상을 빌드합니다.
 
 .PARAMETER Skip
@@ -33,10 +33,6 @@
 .EXAMPLE
     .\build.ps1
     전체 빌드 (Release)
-
-.EXAMPLE
-    .\build.ps1 -Only cli,language_server
-    CLI와 Language Server만 빌드
 
 .EXAMPLE
     .\build.ps1 -Only cli -Rid win-x64 -Install
@@ -125,13 +121,12 @@ $ProgramDir = "C:\Program Files\Dotori"
 $UserDir    = Join-Path $env:LOCALAPPDATA "Dotori"
 $IsAdmin    = Test-Admin
 
-# 빌드 대상 정의: 이름 → .csproj 경로
+# 빌드 대상 정의: 이름 → .csproj 경로 (Language Server는 cli에 통합)
 $AllTargets = [ordered]@{
-    language_server = "src\Dotori.LanguageServer\Dotori.LanguageServer.csproj"
-    cli             = "src\Dotori.Cli\Dotori.Cli.csproj"
-    build_server    = "src\Dotori.BuildServer\Dotori.BuildServer.csproj"
-    worker          = "src\Dotori.Worker\Dotori.Worker.csproj"
-    registry        = "src\Dotori.Registry\Dotori.Registry.csproj"
+    cli          = "src\Dotori.Cli\Dotori.Cli.csproj"
+    build_server = "src\Dotori.BuildServer\Dotori.BuildServer.csproj"
+    worker       = "src\Dotori.Worker\Dotori.Worker.csproj"
+    registry     = "src\Dotori.Registry\Dotori.Registry.csproj"
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
