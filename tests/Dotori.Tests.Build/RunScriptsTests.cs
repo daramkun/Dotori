@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Dotori.Core.Build;
 
 namespace Dotori.Tests.Build;
@@ -17,10 +18,24 @@ public sealed class RunScriptsTests
         _tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(_tempDir);
         // Resolve symlinks (macOS: /var is a symlink to /private/var)
-        var saved = Environment.CurrentDirectory;
-        Environment.CurrentDirectory = _tempDir;
-        _tempDir = Environment.CurrentDirectory;
-        Environment.CurrentDirectory = saved;
+        // Use a subprocess instead of Environment.CurrentDirectory to avoid a race
+        // condition when tests run in parallel (CWD is process-global state).
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                using var proc = Process.Start(new ProcessStartInfo("realpath", _tempDir)
+                {
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                })!;
+                proc.WaitForExit();
+                var resolved = proc.StandardOutput.ReadToEnd().Trim();
+                if (!string.IsNullOrEmpty(resolved))
+                    _tempDir = resolved;
+            }
+            catch { /* fall through to original path */ }
+        }
     }
 
     [TestCleanup]
