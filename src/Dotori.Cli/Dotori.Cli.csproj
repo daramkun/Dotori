@@ -30,4 +30,32 @@
     <ProjectReference Include="../Dotori.LanguageServer/Dotori.LanguageServer.csproj" />
   </ItemGroup>
 
+  <!-- macOS: NativeAOT 링크 픽스
+       - NativeAOT는 macOS에서 -isysroot를 생략하는데, Xcode 16+ 링커는
+         SDK 없이 libdl.tbd를 찾지 못해 "library not found for -ldl" 발생
+       - Swift 런타임 라이브러리가 /usr/lib/swift에 없고 Xcode 툴체인 내부에만 있음 -->
+  <Target Name="FixNativeAotMacOSLink"
+          BeforeTargets="LinkNative"
+          Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <Exec Command="xcrun --show-sdk-path"
+          ConsoleToMsBuild="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_MacOSSdkPath" />
+    </Exec>
+    <Exec Command="xcode-select -p"
+          ConsoleToMsBuild="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_XcodeDevDir" />
+    </Exec>
+    <ItemGroup Condition="'$(_MacOSSdkPath)' != ''">
+      <!-- SDK 경로 지정: libdl.tbd 등 TBD stub 파일 탐색 가능하게 함 -->
+      <LinkerArg Include="-isysroot $(_MacOSSdkPath)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(_XcodeDevDir)' != ''">
+      <!-- Swift 런타임 dylib 위치 -->
+      <LinkerArg Include="-L$(_XcodeDevDir)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/macosx"
+                 Condition="Exists('$(_XcodeDevDir)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/macosx')" />
+    </ItemGroup>
+  </Target>
+
 </Project>

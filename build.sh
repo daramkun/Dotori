@@ -99,6 +99,16 @@ dotnet_publish() {
         ver_args="-p:Version=${VERSION#v}"   # 'v' 접두사 제거 (v1.2.3 → 1.2.3)
     fi
 
+    # macOS: NativeAOT가 Xcode clang을 사용하도록 강제
+    local clang_args=""
+    if [[ "$(uname)" == "Darwin" ]]; then
+        local xcode_clang
+        xcode_clang=$(xcrun --find clang 2>/dev/null) || true
+        if [[ -n "$xcode_clang" ]]; then
+            clang_args="-p:CppCompilerAndLinker=$xcode_clang"
+        fi
+    fi
+
     info "[$label] 빌드 중...${RID:+ (rid=$RID)}${VERSION:+ (ver=$VERSION)} → $out_dir"
     mkdir -p "$out_dir"
     # shellcheck disable=SC2086
@@ -109,6 +119,7 @@ dotnet_publish() {
         -v quiet \
         $rid_args \
         $ver_args \
+        $clang_args \
         $extra_args
     success "[$label] 완료"
 }
