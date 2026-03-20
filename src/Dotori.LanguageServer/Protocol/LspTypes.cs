@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Dotori.LanguageServer.Protocol;
@@ -9,14 +10,15 @@ public sealed class JsonRpcRequest
     [JsonPropertyName("jsonrpc")]
     public string JsonRpc { get; set; } = "2.0";
 
+    // LSP spec: id is int | string | null — use JsonElement to handle all three
     [JsonPropertyName("id")]
-    public JsonRpcId? Id { get; set; }
+    public JsonElement? Id { get; set; }
 
     [JsonPropertyName("method")]
     public required string Method { get; set; }
 
     [JsonPropertyName("params")]
-    public System.Text.Json.JsonElement? Params { get; set; }
+    public JsonElement? Params { get; set; }
 }
 
 public sealed class JsonRpcResponse
@@ -25,7 +27,7 @@ public sealed class JsonRpcResponse
     public string JsonRpc { get; set; } = "2.0";
 
     [JsonPropertyName("id")]
-    public JsonRpcId? Id { get; set; }
+    public JsonElement? Id { get; set; }
 
     [JsonPropertyName("result")]
     public object? Result { get; set; }
@@ -55,15 +57,6 @@ public sealed class JsonRpcError
     public required string Message { get; set; }
 }
 
-/// <summary>LSP id can be int or string (or null).</summary>
-public sealed class JsonRpcId
-{
-    public int? IntValue { get; set; }
-    public string? StringValue { get; set; }
-
-    public static JsonRpcId FromInt(int v) => new() { IntValue = v };
-    public static JsonRpcId FromString(string v) => new() { StringValue = v };
-}
 
 // ─── LSP Core Types ───────────────────────────────────────────────────────
 

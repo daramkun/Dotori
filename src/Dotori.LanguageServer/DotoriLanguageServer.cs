@@ -216,7 +216,7 @@ public static class DotoriLanguageServer
 
     private static async Task SendResponseAsync(
         LspTransport transport,
-        JsonRpcId? id,
+        JsonElement? id,
         object? result,
         CancellationToken ct)
     {
@@ -227,7 +227,7 @@ public static class DotoriLanguageServer
 
     private static async Task SendNullResponseAsync(
         LspTransport transport,
-        JsonRpcId? id,
+        JsonElement? id,
         CancellationToken ct)
     {
         var json = BuildNullResponse(id);
@@ -236,7 +236,7 @@ public static class DotoriLanguageServer
 
     private static async Task SendErrorAsync(
         LspTransport transport,
-        JsonRpcId? id,
+        JsonElement? id,
         int code, string message,
         CancellationToken ct)
     {
@@ -285,19 +285,19 @@ public static class DotoriLanguageServer
         return LspSerializer.SerializeNotification(notification);
     }
 
-    private static string BuildResponseJson(JsonRpcId? id, string resultJson)
+    private static string BuildResponseJson(JsonElement? id, string resultJson)
     {
         var idJson = id switch
         {
-            null                     => "null",
-            { IntValue: { } i }      => i.ToString(),
-            { StringValue: { } s }   => $"\"{s}\"",
-            _                        => "null",
+            null                                          => "null",
+            { ValueKind: JsonValueKind.Number } e         => e.GetRawText(),
+            { ValueKind: JsonValueKind.String } e         => $"\"{e.GetString()}\"",
+            _                                             => "null",
         };
         return $"{{\"jsonrpc\":\"2.0\",\"id\":{idJson},\"result\":{resultJson}}}";
     }
 
-    private static string BuildNullResponse(JsonRpcId? id)
+    private static string BuildNullResponse(JsonElement? id)
     {
         return BuildResponseJson(id, "null");
     }
