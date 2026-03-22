@@ -57,4 +57,42 @@ public static class DotoriConstants
 
     /// <summary>Format version written into .dotori.lock.</summary>
     public const int LockFileVersion = 1;
+
+    // ─── Environment variables ─────────────────────────────────────────────────
+
+    /// <summary>Injected into the build process: full target ID (e.g. macos-arm64).</summary>
+    public const string EnvTarget   = "DOTORI_TARGET";
+
+    /// <summary>Injected into the build process: build configuration (debug / release).</summary>
+    public const string EnvConfig   = "DOTORI_CONFIG";
+
+    /// <summary>Injected into the build process: target platform (windows, linux, macos, …).</summary>
+    public const string EnvPlatform = "DOTORI_PLATFORM";
+
+    /// <summary>Injected into the build process: target CPU architecture (x64, arm64, …).</summary>
+    public const string EnvArch     = "DOTORI_ARCH";
+
+    /// <summary>Prefix for per-option environment variables (e.g. DOTORI_OPTION_SIMD).</summary>
+    public const string EnvOptionPrefix = "DOTORI_OPTION_";
+
+    /// <summary>Remote build server address (fallback env var for --remote).</summary>
+    public const string EnvServer = "DOTORI_SERVER";
+
+    /// <summary>Override compiler path / kind (clang / msvc / absolute path).</summary>
+    public const string EnvCxx = "CXX";
+
+    /// <summary>Fallback compiler override when CXX is not set.</summary>
+    public const string EnvCc = "CC";
+
+    /// <summary>Android NDK root directory override.</summary>
+    public const string EnvAndroidNdkHome = "ANDROID_NDK_HOME";
+
+    /// <summary>Android SDK root directory (NDK resolved under ndk/ subdirectory).</summary>
+    public const string EnvAndroidHome = "ANDROID_HOME";
+
+    /// <summary>Emscripten SDK root directory.</summary>
+    public const string EnvEmsdkPath = "EMSDK_PATH";
+
+    /// <summary>MinGW sysroot directory override for cross-compilation to Windows.</summary>
+    public const string EnvMinGWSysroot = "MINGW_SYSROOT";
 }

@@ -58,7 +58,7 @@ internal static class BuildCommandFactory
             var noLink      = parseResult.GetValue(noLinkOption);
             var noUnity     = parseResult.GetValue(noUnityOption);
             var remoteArg   = parseResult.GetValue(remoteOption)
-                           ?? Environment.GetEnvironmentVariable("DOTORI_SERVER");
+                           ?? Environment.GetEnvironmentVariable(DotoriConstants.EnvServer);
 
             var config   = release ? "release" : "debug";
             var targetId = BuildContext.ResolveTargetId(targetArg);
@@ -138,216 +138,17 @@ internal static class BuildCommandFactory
             // Track dotoriPath → built library output (for transitive linking)
             var builtLibraries = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(
                 StringComparer.OrdinalIgnoreCase);
-            // Track whether --file was found in any project
-            int fileFound = 0; // 0 = not found, 1 = found (using int for Interlocked)
+            // Track whether --file was found in any project (array trick for async/Interlocked)
+            int[] fileFound = [0]; // 0 = not found, 1 = found
 
             try
             {
                 foreach (var level in buildOrder)
                 {
                     // Compile all projects in this level in parallel
-                    var levelTasks = level.Select(async node =>
-                    {
-                        var model = BuildContext.FlattenProject(node.DotoriPath, ctx, node);
-                        if (model is null) return 1;
-
-                        Console.WriteLine($"  Building {model.Name} ({node.DotoriPath})");
-
-                        using var checker = new IncrementalChecker(model.ProjectDir);
-                        var planner = new BuildPlanner(model, toolchain, config, targetId);
-
-                        // Collect transitive dependency library paths
-                        var depLibs = CollectDepLibs(node, builtLibraries);
-
-                        // Determine link output dir for env vars
-                        var linkOutDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
-                            DotoriConstants.BinSubDir, $"{targetId}-{config.ToLower()}");
-
-                        // pre-build scripts
-                        if (model.PreBuildCommands.Count > 0)
-                        {
-                            var preCode = await BuildContext.RunScriptsAsync(
-                                model.PreBuildCommands, model.ProjectDir,
-                                targetId, config, linkOutDir, ct);
-                            if (preCode != 0) return preCode;
-                        }
-
-                        // PCH — plan once, used by both --file and normal build paths
-                        var pchPlan = planner.PlanPch(checker);
-
-                        // Single-file mode
-                        if (fileArg is not null)
-                        {
-                            var absFile = Path.GetFullPath(fileArg);
-                            var ext = Path.GetExtension(absFile);
-                            bool isModuleFile = ext.Equals(".cppm", StringComparison.OrdinalIgnoreCase) ||
-                                                ext.Equals(".ixx",  StringComparison.OrdinalIgnoreCase);
-
-                            // Plan PCH first (rebuild if stale)
-                            if (pchPlan?.BuildJob is not null)
-                            {
-                                var pchResults = await executor.RunCompileJobsAsync(
-                                    toolchain.CompilerPath,
-                                    new[] { pchPlan.BuildJob }, ct);
-                                var pchCode = PrintResults(pchResults);
-                                if (pchCode != 0) return pchCode;
-                                checker.Record(pchPlan.BuildJob.SourceFile);
-                            }
-
-                            var singleJob = planner.PlanSingleFileJob(absFile, noUnity);
-
-                            if (singleJob is null)
-                            {
-                                // File not in this project — register existing library output for transitive linking
-                                var existingLinkOut = planner.PlanLinkJob(Enumerable.Empty<string>());
-                                if (existingLinkOut is not null && File.Exists(existingLinkOut.OutputFile))
-                                    builtLibraries[node.DotoriPath] = existingLinkOut.OutputFile;
-                                return 0;
-                            }
-
-                            // Mark file as found in this project
-                            System.Threading.Interlocked.Exchange(ref fileFound, 1);
-
-                            var fileResults = await executor.RunCompileJobsAsync(
-                                toolchain.CompilerPath, new[] { singleJob }, ct);
-                            int fileCode = PrintResults(fileResults);
-                            if (fileCode != 0) return fileCode;
-
-                            // Module files (.cppm/.ixx): --no-link is implicit
-                            if (isModuleFile || noLink)
-                                return 0;
-
-                            // Link with existing obj files + this new obj
-                            var objCacheDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
-                                DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}");
-                            var existingObjs = Directory.Exists(objCacheDir)
-                                ? Directory.GetFiles(objCacheDir, "*.o")
-                                  .Concat(Directory.GetFiles(objCacheDir, "*.obj"))
-                                  .ToList()
-                                : new List<string>();
-
-                            // Replace any stale obj for this file with the new one, include dep libs
-                            var allObjs = existingObjs
-                                .Where(f => !string.Equals(f, singleJob.OutputFile,
-                                    StringComparison.OrdinalIgnoreCase))
-                                .Append(singleJob.OutputFile)
-                                .Concat(depLibs)
-                                .ToList();
-
-                            var singleLinkJob = planner.PlanLinkJob(allObjs);
-                            if (singleLinkJob is null) return 0;
-
-                            var singleLinkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), singleLinkJob, ct);
-                            if (!singleLinkResult.Success)
-                            {
-                                Console.Error.WriteLine(singleLinkResult.Stderr);
-                                return 1;
-                            }
-                            Console.WriteLine($"  Linked: {singleLinkJob.OutputFile}");
-                            return 0;
-                        }
-
-                        // Normal build — PCH first (pchPlan already computed above)
-                        if (pchPlan?.BuildJob is not null)
-                        {
-                            var pchResults = await executor.RunCompileJobsAsync(
-                                toolchain.CompilerPath, new[] { pchPlan.BuildJob }, ct);
-                            int pchCode = PrintResults(pchResults);
-                            if (pchCode != 0) return pchCode;
-                            checker.Record(pchPlan.BuildJob.SourceFile);
-                        }
-
-                        // Modules next (order-sensitive BMI generation)
-                        var moduleJobs = await planner.PlanModuleJobsAsync(ct: ct);
-                        IReadOnlyDictionary<string, string>? bmiPaths = null;
-                        if (moduleJobs.Count > 0)
-                        {
-                            // BMI jobs must run in dependency order (sequential)
-                            foreach (var bmiJob in moduleJobs)
-                            {
-                                var bmiResults = await executor.RunCompileJobsAsync(
-                                    toolchain.CompilerPath, new[] { bmiJob }, ct);
-                                int bmiCode = PrintResults(bmiResults);
-                                if (bmiCode != 0) return bmiCode;
-                            }
-                            bmiPaths = BuildPlanner.ExtractBmiPaths(moduleJobs);
-                            // Write module-map.json after all BMIs are compiled
-                            planner.WriteModuleMap(moduleJobs);
-                        }
-
-                        var compileJobs = planner.PlanCompileJobs(checker, pchPlan: pchPlan, bmiPaths: bmiPaths);
-                        // RC resource compilation (Windows MSVC only, runs before link)
-                        var rcJobs = planner.PlanRcJobs();
-                        if (rcJobs.Count > 0)
-                        {
-                            var rcResults = await executor.RunCompileJobsAsync(
-                                toolchain.Msvc!.RcPath!, rcJobs, ct);
-                            int rcCode = PrintResults(rcResults);
-                            if (rcCode != 0) return rcCode;
-                        }
-
-                        if (compileJobs.Count == 0 && moduleJobs.Count == 0 && rcJobs.Count == 0)
-                        {
-                            Console.WriteLine($"  {model.Name}: up to date");
-                            return 0;
-                        }
-
-                        if (compileJobs.Count > 0)
-                        {
-                            var compileResults = await executor.RunCompileJobsAsync(
-                                toolchain.CompilerPath, compileJobs, ct);
-
-                            int code = PrintResults(compileResults);
-                            if (code != 0) return code;
-
-                            foreach (var job in compileJobs)
-                                checker.Record(job.SourceFile);
-                        }
-
-                        if (noLink) return 0;
-
-                        // Static libraries only contain .o files; executables/shared libs get .a files too
-                        var isStaticLib = model.Type == Dotori.Core.Parsing.ProjectType.StaticLibrary;
-                        // For Clang modules: .pcm files must also be linked
-                        var modulePcmFiles = (bmiPaths is not null && toolchain.Kind != Dotori.Core.Toolchain.CompilerKind.Msvc)
-                            ? bmiPaths.Values.ToList()
-                            : Enumerable.Empty<string>();
-                        var objFiles = compileJobs.Select(j => j.OutputFile)
-                            .Concat(modulePcmFiles)
-                            .Concat(rcJobs.Select(j => j.OutputFile))   // .res files → linker
-                            .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
-                            .ToList();
-                        var linkJob  = planner.PlanLinkJob(objFiles);
-                        if (linkJob is null) return 0;
-
-                        var linkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), linkJob, ct);
-                        if (!linkResult.Success)
-                        {
-                            Console.Error.WriteLine(linkResult.Stderr);
-                            return 1;
-                        }
-
-                        Console.WriteLine($"  Linked: {linkJob.OutputFile}");
-                        builtLibraries[node.DotoriPath] = linkJob.OutputFile;
-
-                        // Manifest embedding (Windows MSVC only, runs after link)
-                        if (!await planner.EmbedManifestAsync(linkJob.OutputFile, ct))
-                            return 1;
-
-                        // Copy artifacts to user-specified output directories
-                        planner.CopyArtifacts(linkJob.OutputFile);
-
-                        // post-build scripts
-                        if (model.PostBuildCommands.Count > 0)
-                        {
-                            var postCode = await BuildContext.RunScriptsAsync(
-                                model.PostBuildCommands, model.ProjectDir,
-                                targetId, config, linkOutDir, ct);
-                            if (postCode != 0) return postCode;
-                        }
-
-                        return 0;
-                    });
+                    var levelTasks = level.Select(node => BuildProjectAsync(
+                        node, ctx, toolchain, executor, targetId, config,
+                        fileArg, noLink, noUnity, builtLibraries, fileFound, ct));
 
                     var levelResults = await Task.WhenAll(levelTasks);
                     if (levelResults.Any(r => r != 0)) { exitCode = 1; break; }
@@ -360,7 +161,7 @@ internal static class BuildCommandFactory
             }
 
             // If --file was specified but not found in any project, report error
-            if (fileArg is not null && exitCode == 0 && fileFound == 0)
+            if (fileArg is not null && exitCode == 0 && fileFound[0] == 0)
             {
                 Console.Error.WriteLine($"Error: '{fileArg}' is not in any project sources.");
                 return 1;
@@ -370,6 +171,221 @@ internal static class BuildCommandFactory
         });
 
         return command;
+    }
+
+    private static async Task<int> BuildProjectAsync(
+        ProjectNode node,
+        Dotori.Core.Model.TargetContext ctx,
+        Dotori.Core.Toolchain.ToolchainInfo toolchain,
+        IExecutor executor,
+        string targetId,
+        string config,
+        string? fileArg,
+        bool noLink,
+        bool noUnity,
+        System.Collections.Concurrent.ConcurrentDictionary<string, string> builtLibraries,
+        int[] fileFound,
+        CancellationToken ct)
+    {
+        var model = BuildContext.FlattenProject(node.DotoriPath, ctx, node);
+        if (model is null) return 1;
+
+        Console.WriteLine($"  Building {model.Name} ({node.DotoriPath})");
+
+        using var checker = new IncrementalChecker(model.ProjectDir);
+        var planner = new BuildPlanner(model, toolchain, config, targetId);
+
+        // Collect transitive dependency library paths
+        var depLibs = CollectDepLibs(node, builtLibraries);
+
+        // Determine link output dir for env vars
+        var linkOutDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+            DotoriConstants.BinSubDir, $"{targetId}-{config.ToLower()}");
+
+        // pre-build scripts
+        if (model.PreBuildCommands.Count > 0)
+        {
+            var preCode = await BuildContext.RunScriptsAsync(
+                model.PreBuildCommands, model.ProjectDir,
+                targetId, config, linkOutDir, ct);
+            if (preCode != 0) return preCode;
+        }
+
+        // PCH — plan once, used by both --file and normal build paths
+        var pchPlan = planner.PlanPch(checker);
+
+        // Single-file mode
+        if (fileArg is not null)
+        {
+            var absFile = Path.GetFullPath(fileArg);
+            var ext = Path.GetExtension(absFile);
+            bool isModuleFile = ext.Equals(".cppm", StringComparison.OrdinalIgnoreCase) ||
+                                ext.Equals(".ixx",  StringComparison.OrdinalIgnoreCase);
+
+            // Plan PCH first (rebuild if stale)
+            if (pchPlan?.BuildJob is not null)
+            {
+                var pchResults = await executor.RunCompileJobsAsync(
+                    toolchain.CompilerPath,
+                    new[] { pchPlan.BuildJob }, ct);
+                var pchCode = PrintResults(pchResults);
+                if (pchCode != 0) return pchCode;
+                checker.Record(pchPlan.BuildJob.SourceFile);
+            }
+
+            var singleJob = planner.PlanSingleFileJob(absFile, noUnity);
+
+            if (singleJob is null)
+            {
+                // File not in this project — register existing library output for transitive linking
+                var existingLinkOut = planner.PlanLinkJob(Enumerable.Empty<string>());
+                if (existingLinkOut is not null && File.Exists(existingLinkOut.OutputFile))
+                    builtLibraries[node.DotoriPath] = existingLinkOut.OutputFile;
+                return 0;
+            }
+
+            // Mark file as found in this project
+            System.Threading.Interlocked.Exchange(ref fileFound[0], 1);
+
+            var fileResults = await executor.RunCompileJobsAsync(
+                toolchain.CompilerPath, new[] { singleJob }, ct);
+            int fileCode = PrintResults(fileResults);
+            if (fileCode != 0) return fileCode;
+
+            // Module files (.cppm/.ixx): --no-link is implicit
+            if (isModuleFile || noLink)
+                return 0;
+
+            // Link with existing obj files + this new obj
+            var objCacheDir = Path.Combine(model.ProjectDir, DotoriConstants.CacheDir,
+                DotoriConstants.ObjSubDir, $"{targetId}-{config.ToLower()}");
+            var existingObjs = Directory.Exists(objCacheDir)
+                ? Directory.GetFiles(objCacheDir, "*.o")
+                  .Concat(Directory.GetFiles(objCacheDir, "*.obj"))
+                  .ToList()
+                : new List<string>();
+
+            // Replace any stale obj for this file with the new one, include dep libs
+            var allObjs = existingObjs
+                .Where(f => !string.Equals(f, singleJob.OutputFile,
+                    StringComparison.OrdinalIgnoreCase))
+                .Append(singleJob.OutputFile)
+                .Concat(depLibs)
+                .ToList();
+
+            var singleLinkJob = planner.PlanLinkJob(allObjs);
+            if (singleLinkJob is null) return 0;
+
+            var singleLinkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), singleLinkJob, ct);
+            if (!singleLinkResult.Success)
+            {
+                Console.Error.WriteLine(singleLinkResult.Stderr);
+                return 1;
+            }
+            Console.WriteLine($"  Linked: {singleLinkJob.OutputFile}");
+            return 0;
+        }
+
+        // Normal build — PCH first (pchPlan already computed above)
+        if (pchPlan?.BuildJob is not null)
+        {
+            var pchResults = await executor.RunCompileJobsAsync(
+                toolchain.CompilerPath, new[] { pchPlan.BuildJob }, ct);
+            int pchCode = PrintResults(pchResults);
+            if (pchCode != 0) return pchCode;
+            checker.Record(pchPlan.BuildJob.SourceFile);
+        }
+
+        // Modules next (order-sensitive BMI generation)
+        var moduleJobs = await planner.PlanModuleJobsAsync(ct: ct);
+        IReadOnlyDictionary<string, string>? bmiPaths = null;
+        if (moduleJobs.Count > 0)
+        {
+            // BMI jobs must run in dependency order (sequential)
+            foreach (var bmiJob in moduleJobs)
+            {
+                var bmiResults = await executor.RunCompileJobsAsync(
+                    toolchain.CompilerPath, new[] { bmiJob }, ct);
+                int bmiCode = PrintResults(bmiResults);
+                if (bmiCode != 0) return bmiCode;
+            }
+            bmiPaths = BuildPlanner.ExtractBmiPaths(moduleJobs);
+            // Write module-map.json after all BMIs are compiled
+            planner.WriteModuleMap(moduleJobs);
+        }
+
+        var compileJobs = planner.PlanCompileJobs(checker, pchPlan: pchPlan, bmiPaths: bmiPaths);
+        // RC resource compilation (Windows MSVC only, runs before link)
+        var rcJobs = planner.PlanRcJobs();
+        if (rcJobs.Count > 0)
+        {
+            var rcResults = await executor.RunCompileJobsAsync(
+                toolchain.Msvc!.RcPath!, rcJobs, ct);
+            int rcCode = PrintResults(rcResults);
+            if (rcCode != 0) return rcCode;
+        }
+
+        if (compileJobs.Count == 0 && moduleJobs.Count == 0 && rcJobs.Count == 0)
+        {
+            Console.WriteLine($"  {model.Name}: up to date");
+            return 0;
+        }
+
+        if (compileJobs.Count > 0)
+        {
+            var compileResults = await executor.RunCompileJobsAsync(
+                toolchain.CompilerPath, compileJobs, ct);
+
+            int code = PrintResults(compileResults);
+            if (code != 0) return code;
+
+            foreach (var job in compileJobs)
+                checker.Record(job.SourceFile);
+        }
+
+        if (noLink) return 0;
+
+        // Static libraries only contain .o files; executables/shared libs get .a files too
+        var isStaticLib = model.Type == Dotori.Core.Parsing.ProjectType.StaticLibrary;
+        // For Clang modules: .pcm files must also be linked
+        var modulePcmFiles = (bmiPaths is not null && toolchain.Kind != Dotori.Core.Toolchain.CompilerKind.Msvc)
+            ? bmiPaths.Values.ToList()
+            : Enumerable.Empty<string>();
+        var objFiles = compileJobs.Select(j => j.OutputFile)
+            .Concat(modulePcmFiles)
+            .Concat(rcJobs.Select(j => j.OutputFile))   // .res files → linker
+            .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
+            .ToList();
+        var linkJob  = planner.PlanLinkJob(objFiles);
+        if (linkJob is null) return 0;
+
+        var linkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), linkJob, ct);
+        if (!linkResult.Success)
+        {
+            Console.Error.WriteLine(linkResult.Stderr);
+            return 1;
+        }
+
+        Console.WriteLine($"  Linked: {linkJob.OutputFile}");
+        builtLibraries[node.DotoriPath] = linkJob.OutputFile;
+
+        // Manifest embedding (Windows MSVC only, runs after link)
+        if (!await planner.EmbedManifestAsync(linkJob.OutputFile, ct))
+            return 1;
+
+        // Copy artifacts to user-specified output directories
+        planner.CopyArtifacts(linkJob.OutputFile);
+
+        // post-build scripts
+        if (model.PostBuildCommands.Count > 0)
+        {
+            var postCode = await BuildContext.RunScriptsAsync(
+                model.PostBuildCommands, model.ProjectDir,
+                targetId, config, linkOutDir, ct);
+            if (postCode != 0) return postCode;
+        }
+
+        return 0;
     }
 
     private static IReadOnlyList<string> CollectDepLibs(

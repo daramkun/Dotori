@@ -33,12 +33,7 @@ public static class ClangDriver
             flags.Add($"-isysroot \"{toolchain.AppleSdk}\"");
 
         // C++ standard
-        flags.Add(model.Std switch
-        {
-            CxxStd.Cxx17 => "-std=c++17",
-            CxxStd.Cxx20 => "-std=c++20",
-            _             => "-std=c++23",
-        });
+        flags.Add(ClangFamilyDriver.CxxStdFlag(model.Std));
 
         // C++ stdlib
         if (model.Stdlib.HasValue)
@@ -52,25 +47,13 @@ public static class ClangDriver
         }
 
         // Optimization
-        flags.Add(model.Optimize switch
-        {
-            OptimizeLevel.None  => "-O0",
-            OptimizeLevel.Size  => "-Os",
-            OptimizeLevel.Speed => "-O2",
-            OptimizeLevel.Full  => "-O3",
-            _                   => "-O0",
-        });
+        flags.Add(ClangFamilyDriver.OptimizeFlag(model.Optimize));
 
         // LTO
         if (model.Lto) flags.Add("-flto");
 
         // Debug info
-        flags.Add(model.DebugInfo switch
-        {
-            DebugInfoLevel.Full    => "-g",
-            DebugInfoLevel.Minimal => "-gline-tables-only",
-            _                      => string.Empty,
-        });
+        flags.Add(ClangFamilyDriver.DebugInfoFlag(model.DebugInfo));
 
         // Warnings
         flags.Add(model.Warnings switch
@@ -83,13 +66,8 @@ public static class ClangDriver
         });
         if (model.WarningsAsErrors) flags.Add("-Werror");
 
-        // Defines
-        foreach (var d in model.Defines)
-            flags.Add($"-D{d}");
-
-        // Include directories (resolve relative to project root)
-        foreach (var h in model.Headers)
-            flags.Add($"-I\"{PathUtils.MakeAbsolute(model.ProjectDir, h.Path)}\"");
+        // Defines and include directories (resolve relative to project root)
+        ClangFamilyDriver.AddDefinesAndIncludes(flags, model, model.ProjectDir);
 
         // Custom framework search paths (-F) from framework-paths / xcframework resolution
         foreach (var fp in model.FrameworkSearchPaths)

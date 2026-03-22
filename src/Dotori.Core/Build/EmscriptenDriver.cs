@@ -16,37 +16,17 @@ public static class EmscriptenDriver
         var flags = new List<string>();
 
         // C++ standard
-        flags.Add(model.Std switch
-        {
-            CxxStd.Cxx17 => "-std=c++17",
-            CxxStd.Cxx20 => "-std=c++20",
-            _             => "-std=c++23",
-        });
+        flags.Add(ClangFamilyDriver.CxxStdFlag(model.Std));
 
         // Optimization
-        flags.Add(model.Optimize switch
-        {
-            OptimizeLevel.None  => "-O0",
-            OptimizeLevel.Size  => "-Os",
-            OptimizeLevel.Speed => "-O2",
-            OptimizeLevel.Full  => "-O3",
-            _                   => "-O0",
-        });
+        flags.Add(ClangFamilyDriver.OptimizeFlag(model.Optimize));
 
         if (model.Lto) flags.Add("-flto");
 
-        flags.Add(model.DebugInfo switch
-        {
-            DebugInfoLevel.Full    => "-g",
-            DebugInfoLevel.Minimal => "-gline-tables-only",
-            _                      => string.Empty,
-        });
+        flags.Add(ClangFamilyDriver.DebugInfoFlag(model.DebugInfo));
 
-        foreach (var d in model.Defines)
-            flags.Add($"-D{d}");
-
-        foreach (var h in model.Headers)
-            flags.Add($"-I\"{h.Path}\"");
+        // Defines and include directories
+        ClangFamilyDriver.AddDefinesAndIncludes(flags, model);
 
         flags.Add("-c");
 

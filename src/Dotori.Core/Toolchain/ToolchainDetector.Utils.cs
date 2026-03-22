@@ -1,0 +1,198 @@
+using System.Runtime.InteropServices;
+using Dotori.Core;
+
+namespace Dotori.Core.Toolchain;
+
+public static partial class ToolchainDetector
+{
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    /// <summary>Returns true for the two reserved kind-preference names.</summary>
+    internal static bool IsKnownKindName(string value) =>
+        value.Equals("msvc", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("clang", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reads the CXX environment variable (then CC as fallback) and returns the
+    /// compiler path if the file exists, or null if neither variable points to a
+    /// valid executable.
+    /// </summary>
+    internal static string? GetEnvCompilerPath()
+    {
+        var cxx = Environment.GetEnvironmentVariable(DotoriConstants.EnvCxx);
+        if (cxx is not null)
+        {
+            var resolved = ResolveAsCompilerPath(cxx);
+            if (resolved is not null) return resolved;
+        }
+
+        var cc = Environment.GetEnvironmentVariable(DotoriConstants.EnvCc);
+        if (cc is not null)
+        {
+            var resolved = ResolveAsCompilerPath(cc);
+            if (resolved is not null) return resolved;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves a compiler value to an absolute path:
+    /// <list type="bullet">
+    ///   <item>Absolute path → checked directly.</item>
+    ///   <item>Relative path (contains separator or starts with ./) → resolved via CWD.</item>
+    ///   <item>Bare name (e.g. "clang++") → searched in PATH.</item>
+    /// </list>
+    /// Returns null when the executable cannot be found.
+    /// </summary>
+    internal static string? ResolveAsCompilerPath(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (Path.IsPathRooted(value))
+            return File.Exists(value) ? value : null;
+
+        if (value.Contains(Path.DirectorySeparatorChar) ||
+            value.Contains(Path.AltDirectorySeparatorChar))
+        {
+            var full = Path.GetFullPath(value);
+            return File.Exists(full) ? full : null;
+        }
+
+        // Bare name — search PATH (and add .exe on Windows).
+        return FindInPath(value);
+    }
+
+    /// <summary>
+    /// Infers <see cref="CompilerKind"/> from the compiler binary file name.
+    /// Handles both Unix ('/') and Windows ('\') path separators regardless of host OS.
+    /// </summary>
+    internal static CompilerKind GuessKindFromPath(string compilerPath)
+    {
+        // Split on both separators so Windows paths work correctly on Unix hosts.
+        var parts    = compilerPath.Split('/', '\\');
+        var fileName = parts.LastOrDefault(p => p.Length > 0) ?? compilerPath;
+
+        var dotIdx = fileName.LastIndexOf('.');
+        var name   = (dotIdx >= 0 ? fileName[..dotIdx] : fileName)
+                         .ToLowerInvariant();
+
+        if (name is "cl" || name.StartsWith("clang-cl"))
+            return CompilerKind.Msvc;
+
+        if (name.StartsWith("emcc") || name.StartsWith("em++"))
+            return CompilerKind.Emscripten;
+
+        return CompilerKind.Clang;
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="ToolchainInfo"/> identical to <paramref name="original"/>
+    /// except that <see cref="ToolchainInfo.CompilerPath"/> and
+    /// <see cref="ToolchainInfo.Kind"/> are replaced by values derived from
+    /// <paramref name="compilerPath"/>.
+    /// All platform-specific metadata (sysroot, SDK paths, Apple SDK, MSVC paths)
+    /// are preserved so that the rest of the build pipeline still works.
+    /// </summary>
+    internal static ToolchainInfo ApplyCompilerOverride(
+        ToolchainInfo original, string compilerPath)
+    {
+        return new ToolchainInfo
+        {
+            Kind         = GuessKindFromPath(compilerPath),
+            CompilerPath = compilerPath,
+            LinkerPath   = original.LinkerPath,
+            TargetTriple = original.TargetTriple,
+            SysRoot      = original.SysRoot,
+            Msvc         = original.Msvc,
+            AppleSdk     = original.AppleSdk,
+        };
+    }
+
+    private static string HostArch =>
+        RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64  => "x64",
+            Architecture.X86  => "x86",
+            Architecture.Arm64 => "arm64",
+            _                 => "x64",
+        };
+
+    /// <summary>
+    /// Look up a Windows SDK tool (e.g. rc.exe, mt.exe) in the host-arch bin directory.
+    /// Returns null if the file does not exist.
+    /// </summary>
+    private static string? FindSdkTool(string winSdkDir, string winSdkVer, string toolName)
+    {
+        var path = Path.Combine(winSdkDir, "bin", winSdkVer, HostArch, toolName);
+        return File.Exists(path) ? path : null;
+    }
+
+    private static string? RunProcess(string exe, string args)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(exe, args)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError  = true,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc is null) return null;
+            var output = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit();
+            return proc.ExitCode == 0 ? output : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Look for a tool in common Homebrew LLVM installation paths (macOS only).
+    /// Checks Apple Silicon path first, then Intel Mac path.
+    /// </summary>
+    private static string? FindBrewLlvm(string toolName)
+    {
+        var brewPrefixes = new[]
+        {
+            "/opt/homebrew/opt/llvm/bin", // Apple Silicon
+            "/usr/local/opt/llvm/bin",    // Intel Mac
+        };
+
+        foreach (var dir in brewPrefixes)
+        {
+            var candidate = Path.Combine(dir, toolName);
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        return null;
+    }
+
+    private static string? FindInPath(string name, string? extraDir = null)
+    {
+        var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? new[] { ".exe", ".cmd", ".bat" }
+            : new[] { string.Empty };
+
+        var searchPaths = new List<string>();
+        if (extraDir is not null) searchPaths.Add(extraDir);
+
+        var pathVar = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        searchPaths.AddRange(pathVar.Split(Path.PathSeparator));
+
+        foreach (var dir in searchPaths)
+        {
+            foreach (var ext in extensions)
+            {
+                var candidate = Path.Combine(dir, name + ext);
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+
+        return null;
+    }
+}

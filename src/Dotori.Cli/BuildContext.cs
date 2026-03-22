@@ -257,17 +257,17 @@ internal static class BuildContext
 
         // Inject build context into the process environment so .dotori files
         // can reference them via ${DOTORI_CONFIG}, ${DOTORI_PLATFORM}, etc.
-        Environment.SetEnvironmentVariable("DOTORI_TARGET",   targetId);
-        Environment.SetEnvironmentVariable("DOTORI_CONFIG",   config);
-        Environment.SetEnvironmentVariable("DOTORI_PLATFORM", platform);
-        Environment.SetEnvironmentVariable("DOTORI_ARCH",     ExtractArch(parts));
+        Environment.SetEnvironmentVariable(DotoriConstants.EnvTarget,   targetId);
+        Environment.SetEnvironmentVariable(DotoriConstants.EnvConfig,   config);
+        Environment.SetEnvironmentVariable(DotoriConstants.EnvPlatform, platform);
+        Environment.SetEnvironmentVariable(DotoriConstants.EnvArch,     ExtractArch(parts));
 
         // Inject option environment variables: DOTORI_OPTION_<NAME>=1/0
         if (declaredOptions != null)
         {
             foreach (var (name, _) in declaredOptions)
             {
-                var envName = "DOTORI_OPTION_" + name.Replace('-', '_').ToUpperInvariant();
+                var envName = DotoriConstants.EnvOptionPrefix + name.Replace('-', '_').ToUpperInvariant();
                 var isActive = enabledOptions?.Contains(name) ?? false;
                 Environment.SetEnvironmentVariable(envName, isActive ? "1" : "0");
             }
