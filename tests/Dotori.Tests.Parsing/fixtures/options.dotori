@@ -1,0 +1,27 @@
+project MyApp {
+    type = executable
+    std  = c++23
+
+    sources { include "src/**/*.cpp" }
+
+    option simd {
+        default = true
+        defines { "SIMD_ENABLED" "SIMD_VER=2" }
+    }
+
+    option experimental {
+        default = false
+        defines { "EXPERIMENTAL" }
+        dependencies {
+            extra-lib = "1.0.0"
+        }
+    }
+
+    [simd] {
+        compile-flags { "-mavx2" }
+    }
+
+    [experimental.release] {
+        compile-flags { "-O3" }
+    }
+}

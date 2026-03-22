@@ -195,6 +195,7 @@ public sealed partial class Parser
             "output"             => ParseOutputBlock(loc),
             "pre-build"          => ParseBuildScriptBlock(loc, isPost: false),
             "post-build"         => ParseBuildScriptBlock(loc, isPost: true),
+            "option"             => ParseOptionBlock(loc),
             _                    => throw new ParseException($"Unknown project item '{Current.Text}'", loc),
         };
     }

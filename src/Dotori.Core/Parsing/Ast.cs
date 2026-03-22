@@ -248,6 +248,19 @@ public sealed class ConditionBlock(ConditionExpr condition) : ProjectItem
     public List<ProjectItem> Items { get; } = new();
 }
 
+/// <summary>
+/// Declares a named build option with a default value, optional defines, and optional dependencies.
+/// When the option is active its defines and dependencies are merged into the flat model,
+/// and its name is added to the active-atom set so <c>[option-name]</c> condition blocks fire.
+/// </summary>
+public sealed class OptionBlock(string name, bool defaultEnabled) : ProjectItem
+{
+    public string Name { get; } = name;
+    public bool Default { get; } = defaultEnabled;
+    public List<string> Defines { get; } = new();
+    public List<DependencyItem> Dependencies { get; } = new();
+}
+
 // ─── Conditions ────────────────────────────────────────────────────────────
 
 /// <summary>Condition is a dot-joined sequence of atoms, e.g. [windows.release].</summary>

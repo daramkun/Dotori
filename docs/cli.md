@@ -65,6 +65,28 @@ dotori build [옵션]
 - BMI만 재생성 (`--no-link` 암묵적 적용)
 - 의존 BMI가 없으면 선행 BMI도 자동으로 함께 빌드
 
+### 프로젝트 옵션 플래그
+
+`.dotori` 파일에서 `option` 블록으로 선언된 옵션을 켜거나 끌 수 있습니다.
+
+| 패턴 | 설명 |
+|------|------|
+| `--<옵션명>` | 해당 옵션을 활성화 (`default = false`인 옵션을 켤 때) |
+| `--no-<옵션명>` | 해당 옵션을 비활성화 (`default = true`인 옵션을 끌 때) |
+
+선언되지 않은 옵션 이름을 지정하면 오류가 출력됩니다.
+
+```bash
+# simd 옵션 활성화 (default=false 인 경우)
+dotori build --simd
+
+# simd 옵션 비활성화 (default=true 인 경우)
+dotori build --no-simd
+
+# 여러 옵션 동시 지정
+dotori build --simd --experimental
+```
+
 ### 분산 빌드 옵션
 
 | 옵션 | 설명 |
@@ -94,6 +116,10 @@ dotori build --target wasm32-emscripten
 
 # 특정 소스 파일만 빌드
 dotori build --file src/renderer.cpp
+
+# 프로젝트 옵션 사용
+dotori build --simd
+dotori build --no-experimental
 
 # 분산 빌드 서버 사용
 dotori build --remote http://build-server:5100 --jobs 32

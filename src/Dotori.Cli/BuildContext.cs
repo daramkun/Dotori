@@ -194,11 +194,62 @@ internal static class BuildContext
     }
 
     /// <summary>
+    /// Scans the given .dotori files and collects all top-level option declarations.
+    /// Returns a dictionary of option name → default value.
+    /// If the same option name appears in multiple files, the first declaration wins.
+    /// </summary>
+    internal static Dictionary<string, bool> ScanOptions(IEnumerable<string> dotoriPaths)
+    {
+        var options = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in dotoriPaths)
+        {
+            DotoriFile file;
+            try { file = DotoriParser.ParseFile(path); }
+            catch { continue; }
+            if (file.Project is null) continue;
+
+            foreach (var item in file.Project.Items.OfType<OptionBlock>())
+            {
+                if (!options.ContainsKey(item.Name))
+                    options[item.Name] = item.Default;
+            }
+        }
+        return options;
+    }
+
+    /// <summary>
+    /// Resolve the final set of enabled options from declared defaults and CLI overrides.
+    /// <paramref name="declaredOptions"/> maps option name → default value.
+    /// <paramref name="cliEnabled"/> is the set of options explicitly enabled via --name.
+    /// <paramref name="cliDisabled"/> is the set of options explicitly disabled via --no-name.
+    /// Returns the set of option names that are active, or null if no options are declared.
+    /// </summary>
+    internal static IReadOnlySet<string>? ResolveEnabledOptions(
+        Dictionary<string, bool> declaredOptions,
+        IReadOnlySet<string> cliEnabled,
+        IReadOnlySet<string> cliDisabled)
+    {
+        if (declaredOptions.Count == 0) return null;
+
+        var enabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, defaultVal) in declaredOptions)
+        {
+            bool active = defaultVal;
+            if (cliEnabled.Contains(name))  active = true;
+            if (cliDisabled.Contains(name)) active = false;
+            if (active) enabled.Add(name);
+        }
+        return enabled;
+    }
+
+    /// <summary>
     /// Build <see cref="TargetContext"/> from CLI arguments.
     /// </summary>
     internal static TargetContext MakeTargetContext(
         string targetId, string config,
-        string? runtimeLink = null, string? libc = null, string? stdlib = null)
+        string? runtimeLink = null, string? libc = null, string? stdlib = null,
+        IReadOnlySet<string>? enabledOptions = null,
+        Dictionary<string, bool>? declaredOptions = null)
     {
         var parts    = targetId.Split('-');
         var platform = parts.Length > 0 ? parts[0] : "linux";
@@ -211,6 +262,17 @@ internal static class BuildContext
         Environment.SetEnvironmentVariable("DOTORI_PLATFORM", platform);
         Environment.SetEnvironmentVariable("DOTORI_ARCH",     ExtractArch(parts));
 
+        // Inject option environment variables: DOTORI_OPTION_<NAME>=1/0
+        if (declaredOptions != null)
+        {
+            foreach (var (name, _) in declaredOptions)
+            {
+                var envName = "DOTORI_OPTION_" + name.Replace('-', '_').ToUpperInvariant();
+                var isActive = enabledOptions?.Contains(name) ?? false;
+                Environment.SetEnvironmentVariable(envName, isActive ? "1" : "0");
+            }
+        }
+
         return new TargetContext
         {
             Platform = platform,
@@ -222,6 +284,7 @@ internal static class BuildContext
             WasmBackend = targetId.Contains("emscripten") ? "emscripten"
                         : targetId.Contains("bare")       ? "bare"
                         : null,
+            EnabledOptions = enabledOptions,
         };
     }
 

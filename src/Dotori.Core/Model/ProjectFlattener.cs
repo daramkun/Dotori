@@ -32,7 +32,7 @@ public static class ProjectFlattener
         layers.Sort((a, b) => a.Specificity.CompareTo(b.Specificity));
 
         foreach (var (_, items) in layers)
-            ApplyItems(model, items);
+            ApplyItems(model, items, context);
 
         RuntimeEnforcer.Enforce(model, context.Platform);
         return model;
@@ -88,7 +88,7 @@ public static class ProjectFlattener
 
     // ─── Item application ──────────────────────────────────────────────────
 
-    private static void ApplyItems(FlatProjectModel model, List<ProjectItem> items)
+    private static void ApplyItems(FlatProjectModel model, List<ProjectItem> items, TargetContext context)
     {
         foreach (var item in items)
         {
@@ -205,6 +205,24 @@ public static class ProjectFlattener
 
                 case PostBuildBlock b:
                     model.PostBuildCommands.AddRange(b.Commands.Select(EnvExpander.Expand));
+                    break;
+
+                case OptionBlock b:
+                    // Option is active if explicitly enabled, explicitly disabled, or default
+                    bool optionActive = context.EnabledOptions != null
+                        ? context.EnabledOptions.Contains(b.Name, StringComparer.OrdinalIgnoreCase)
+                        : b.Default;
+                    if (optionActive)
+                    {
+                        model.Defines.AddRange(b.Defines.Select(EnvExpander.Expand));
+                        foreach (var dep in b.Dependencies)
+                        {
+                            var expandedDep = ExpandDependency(dep);
+                            var idx = model.Dependencies.FindIndex(d => d.Name == dep.Name);
+                            if (idx >= 0) model.Dependencies[idx] = expandedDep;
+                            else model.Dependencies.Add(expandedDep);
+                        }
+                    }
                     break;
             }
         }

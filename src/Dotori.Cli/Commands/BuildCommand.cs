@@ -40,6 +40,9 @@ internal static class BuildCommandFactory
         command.Add(noUnityOption);
         command.Add(remoteOption);
 
+        // Allow unknown --flags so project-declared options can be passed as --option-name / --no-option-name
+        command.TreatUnmatchedTokensAsErrors = false;
+
         command.SetAction(async (parseResult, ct) =>
         {
             var projectArg  = parseResult.GetValue(projectOption);
@@ -78,7 +81,50 @@ internal static class BuildCommandFactory
             var toolchain = BuildContext.DetectToolchain(targetId, compiler);
             if (toolchain is null) return 1;
 
-            var ctx = BuildContext.MakeTargetContext(targetId, config, runtimeLink, libc, stdlib);
+            // Scan declared options across all project files in the DAG
+            var allDotoriPaths = dag.Values.Select(n => n.DotoriPath);
+            var declaredOptions = BuildContext.ScanOptions(allDotoriPaths);
+
+            // Parse unmatched tokens for --option-name / --no-option-name
+            var cliEnabled  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var cliDisabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var token in parseResult.UnmatchedTokens)
+            {
+                if (token.StartsWith("--no-", StringComparison.Ordinal))
+                {
+                    cliDisabled.Add(token[5..]);
+                }
+                else if (token.StartsWith("--", StringComparison.Ordinal))
+                {
+                    cliEnabled.Add(token[2..]);
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Error: Unexpected argument '{token}'.");
+                    return 1;
+                }
+            }
+
+            // Validate: all CLI option tokens must match a declared option
+            var allCliOptions = cliEnabled.Concat(cliDisabled);
+            foreach (var name in allCliOptions)
+            {
+                if (!declaredOptions.ContainsKey(name))
+                {
+                    var known = declaredOptions.Count > 0
+                        ? $" Known options: {string.Join(", ", declaredOptions.Keys)}"
+                        : " No options are declared in any project.";
+                    Console.Error.WriteLine($"Error: Unknown option '--{name}'.{known}");
+                    return 1;
+                }
+            }
+
+            // Resolve final enabled options (defaults + CLI overrides)
+            var enabledOptions = BuildContext.ResolveEnabledOptions(declaredOptions, cliEnabled, cliDisabled);
+
+            var ctx = BuildContext.MakeTargetContext(
+                targetId, config, runtimeLink, libc, stdlib,
+                enabledOptions, declaredOptions);
 
             // Select executor: remote (with local fallback) or local
             IExecutor executor = remoteArg is not null

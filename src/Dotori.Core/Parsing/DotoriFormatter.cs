@@ -230,6 +230,9 @@ public static class DotoriFormatter
             case ConditionBlock b:
                 FormatConditionBlock(sb, b, indent);
                 break;
+            case OptionBlock b:
+                FormatOptionBlock(sb, b, indent);
+                break;
         }
     }
 
@@ -337,6 +340,43 @@ public static class DotoriFormatter
     {
         sb.AppendLine($"{I(indent)}[{block.Condition}] {{");
         AppendProjectItems(sb, block.Items, indent + 1);
+        sb.AppendLine($"{I(indent)}}}");
+    }
+
+    private static void FormatOptionBlock(StringBuilder sb, OptionBlock block, int indent)
+    {
+        sb.AppendLine($"{I(indent)}option {block.Name} {{");
+        sb.AppendLine($"{I(indent + 1)}default = {(block.Default ? "true" : "false")}");
+        if (block.Defines.Count > 0)
+        {
+            sb.AppendLine($"{I(indent + 1)}defines {{");
+            foreach (var d in block.Defines)
+                sb.AppendLine($"{I(indent + 2)}{QuoteString(d)}");
+            sb.AppendLine($"{I(indent + 1)}}}");
+        }
+        if (block.Dependencies.Count > 0)
+        {
+            sb.AppendLine($"{I(indent + 1)}dependencies {{");
+            foreach (var dep in block.Dependencies)
+            {
+                switch (dep.Value)
+                {
+                    case VersionDependency v:
+                        sb.AppendLine($"{I(indent + 2)}{dep.Name} = {QuoteString(v.Version)}");
+                        break;
+                    case ComplexDependency c:
+                        var parts = new List<string>();
+                        if (c.Git     is not null) parts.Add($"git = {QuoteString(c.Git)}");
+                        if (c.Tag     is not null) parts.Add($"tag = {QuoteString(c.Tag)}");
+                        if (c.Commit  is not null) parts.Add($"commit = {QuoteString(c.Commit)}");
+                        if (c.Path    is not null) parts.Add($"path = {QuoteString(c.Path)}");
+                        if (c.Version is not null) parts.Add($"version = {QuoteString(c.Version)}");
+                        sb.AppendLine($"{I(indent + 2)}{dep.Name} = {{ {string.Join(", ", parts)} }}");
+                        break;
+                }
+            }
+            sb.AppendLine($"{I(indent + 1)}}}");
+        }
         sb.AppendLine($"{I(indent)}}}");
     }
 

@@ -281,6 +281,50 @@ public sealed partial class Parser
         return block;
     }
 
+    // ─── option block ───────────────────────────────────────────────────────
+
+    private OptionBlock ParseOptionBlock(SourceLocation loc)
+    {
+        Consume(); // "option"
+        var name = Expect(TokenKind.Ident).Text;
+        Expect(TokenKind.LBrace);
+        bool? defaultVal = null;
+        var defines = new List<string>();
+        var dependencies = new List<DependencyItem>();
+        while (true)
+        {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
+            var key = Current.Text;
+            switch (key)
+            {
+                case "default":
+                    Consume();
+                    Expect(TokenKind.Equals);
+                    defaultVal = ParseBool();
+                    break;
+                case "defines":
+                    Consume(); // "defines"
+                    defines.AddRange(ParseStringList());
+                    break;
+                case "dependencies":
+                    var depsBlock = ParseDependenciesBlock(Current.Location);
+                    dependencies.AddRange(depsBlock.Items);
+                    break;
+                default:
+                    throw new ParseException($"Unknown option property '{key}'", Current.Location);
+            }
+        }
+        SkipComments();
+        Expect(TokenKind.RBrace);
+        if (defaultVal is null)
+            throw new ParseException($"Option '{name}' is missing required 'default' property", loc);
+        var block = new OptionBlock(name, defaultVal.Value) { Location = loc };
+        block.Defines.AddRange(defines);
+        block.Dependencies.AddRange(dependencies);
+        return block;
+    }
+
     // ─── pre-build / post-build blocks ──────────────────────────────────────
 
     private ProjectItem ParseBuildScriptBlock(SourceLocation loc, bool isPost)

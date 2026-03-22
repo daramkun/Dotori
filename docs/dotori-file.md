@@ -354,6 +354,61 @@ post-build {
 
 ---
 
+## option 블록 — 선택적 빌드 기능
+
+프로젝트에 이름 있는 옵션을 선언합니다. CLI 플래그(`--옵션명` / `--no-옵션명`)로 켜고 끌 수 있습니다.
+
+```
+option simd {
+    default     = true                # 기본 활성 여부 (필수)
+    defines     { "SIMD_ENABLED" "SIMD_VER=2" }
+    dependencies {
+        simd-utils = { path = "../simd-utils" }
+    }
+}
+
+option experimental {
+    default = false
+    defines { "EXPERIMENTAL" }
+}
+```
+
+| 속성 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `default` | bool | ✅ | 기본 활성 여부 (`true` / `false`) |
+| `defines` | string 목록 | — | 옵션 활성 시 추가할 전처리기 정의 |
+| `dependencies` | 의존성 블록 | — | 옵션 활성 시 추가할 의존성 |
+
+### 조건 블록과 연동
+
+옵션 이름은 기존 `[atom]` 조건 시스템의 atom으로 사용할 수 있습니다.
+
+```
+[simd] {
+    compile-flags { "-mavx2" }
+    sources { include "src/simd/**/*.cpp" }
+}
+
+[experimental.release] {
+    compile-flags { "-O3" }
+}
+```
+
+> **참고**: `[simd]` 조건 블록은 `--simd` 플래그(또는 `EnabledOptions`에 `simd` 포함)로 명시적으로 활성화된 경우에만 적용됩니다.
+> `default = true`인 옵션도 CLI에서 명시하지 않으면 조건 블록은 적용되지 않습니다.
+> `option` 블록의 `defines`/`dependencies`는 `default` 값에 따라 CLI 없이도 적용됩니다.
+
+### 환경변수
+
+옵션 활성 여부가 환경변수로 노출됩니다. 이름은 대문자화하고 `-` → `_`로 변환합니다.
+
+| 옵션 이름 | 환경변수 | 활성 시 | 비활성 시 |
+|-----------|---------|---------|-----------|
+| `simd` | `DOTORI_OPTION_SIMD` | `1` | `0` |
+| `my-feature` | `DOTORI_OPTION_MY_FEATURE` | `1` | `0` |
+
+---
+
 ## dependencies 블록 — 의존성
 
 ```

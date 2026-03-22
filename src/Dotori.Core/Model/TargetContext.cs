@@ -13,6 +13,12 @@ public sealed class TargetContext
     public string? Libc             { get; init; }   // glibc, musl (Linux only)
     public string? Stdlib           { get; init; }   // libc++, libstdc++
     public string? WasmBackend      { get; init; }   // emscripten, bare (WASM only)
+    /// <summary>
+    /// Option names that are currently active (enabled). When an option name appears here
+    /// it is also added to <see cref="ActiveAtoms"/> so that <c>[option-name]</c> condition
+    /// blocks are evaluated as matching.
+    /// </summary>
+    public IReadOnlySet<string>? EnabledOptions { get; init; }
 
     private IReadOnlySet<string>? _cachedAtoms;
 
@@ -35,6 +41,9 @@ public sealed class TargetContext
         if (Libc        != null) atoms.Add(Libc);
         if (Stdlib      != null) atoms.Add(NormalizeStdlib(Stdlib));
         if (WasmBackend != null) atoms.Add(WasmBackend);
+        if (EnabledOptions != null)
+            foreach (var opt in EnabledOptions)
+                atoms.Add(opt);
         return atoms;
     }
 
