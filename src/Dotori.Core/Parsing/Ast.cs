@@ -209,6 +209,10 @@ public sealed class ComplexDependency : DependencyValue
     public string? Commit { get; set; }
     public string? Path { get; set; }
     public string? Version { get; set; }
+    /// <summary>
+    /// If set, this dependency is only included when ALL named options are active.
+    /// </summary>
+    public List<string>? Options { get; set; }
 }
 
 public sealed class PchBlock : ProjectItem

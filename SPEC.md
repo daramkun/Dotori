@@ -435,6 +435,8 @@ dep_option      ::= "git"     "=" string
                   | "commit"  "=" string
                   | "path"    "=" string      # 빌드 순서 DAG에 포함
                   | "version" "=" version_str
+                  | "option"  "=" string                  # 해당 옵션이 활성일 때만 포함
+                  | "option"  "=" "{" { string } "}"     # 여러 옵션 모두 활성일 때만 포함 (AND)
 
 condition       ::= "[" cond_expr "]"
 cond_expr       ::= cond_atom { "." cond_atom }

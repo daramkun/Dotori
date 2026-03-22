@@ -17,6 +17,12 @@ project MyApp {
         }
     }
 
+    dependencies {
+        always-lib      = "2.0.0"
+        optional-lib    = { version = "3.0.0", option = "experimental" }
+        multi-opt-lib   = { version = "4.0.0", option = { "simd" "experimental" } }
+    }
+
     [simd] {
         compile-flags { "-mavx2" }
     }

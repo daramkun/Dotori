@@ -259,6 +259,237 @@ public sealed class OptionFlattenerTests
     }
 }
 
+// ─── Parser tests for option field in dependency items ───────────────────────
+
+[TestClass]
+public sealed class DependencyOptionFieldTests
+{
+    [TestMethod]
+    public void Parser_ComplexDependency_SingleOptionParsed()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    my-lib = { path = "../lib", option = "simd" }
+                }
+            }
+            """, "<test>");
+        var depsBlock = file.Project!.Items.OfType<DependenciesBlock>().Single();
+        var dep = depsBlock.Items.Single();
+        Assert.AreEqual("my-lib", dep.Name);
+        var cd = Assert.IsInstanceOfType<ComplexDependency>(dep.Value);
+        Assert.AreEqual("../lib", cd.Path);
+        Assert.IsNotNull(cd.Options);
+        Assert.HasCount(1, cd.Options);
+        Assert.AreEqual("simd", cd.Options[0]);
+    }
+
+    [TestMethod]
+    public void Parser_ComplexDependency_MultipleOptionsParsed()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    my-lib = { version = "1.0.0", option = { "simd" "experimental" } }
+                }
+            }
+            """, "<test>");
+        var depsBlock = file.Project!.Items.OfType<DependenciesBlock>().Single();
+        var dep = depsBlock.Items.Single();
+        var cd = Assert.IsInstanceOfType<ComplexDependency>(dep.Value);
+        Assert.IsNotNull(cd.Options);
+        Assert.HasCount(2, cd.Options);
+        Assert.AreEqual("simd",         cd.Options[0]);
+        Assert.AreEqual("experimental", cd.Options[1]);
+    }
+
+    [TestMethod]
+    public void Parser_ComplexDependency_NoOption_IsNull()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    my-lib = { path = "../lib" }
+                }
+            }
+            """, "<test>");
+        var depsBlock = file.Project!.Items.OfType<DependenciesBlock>().Single();
+        var dep = depsBlock.Items.Single();
+        var cd = Assert.IsInstanceOfType<ComplexDependency>(dep.Value);
+        Assert.IsNull(cd.Options);
+    }
+
+    [TestMethod]
+    public void Flatten_DepOptionField_ExcludedWhenOptionInactive()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    always-lib   = "1.0.0"
+                    optional-lib = { version = "2.0.0", option = "myopt" }
+                }
+            }
+            """, "<test>");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+        };
+        var model = ProjectFlattener.Flatten(file.Project!, "<test>", ctx);
+        Assert.Contains("always-lib",   model.Dependencies.Select(d => d.Name));
+        Assert.DoesNotContain("optional-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_DepOptionField_IncludedWhenOptionActive()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    always-lib   = "1.0.0"
+                    optional-lib = { version = "2.0.0", option = "myopt" }
+                }
+            }
+            """, "<test>");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "myopt" },
+        };
+        var model = ProjectFlattener.Flatten(file.Project!, "<test>", ctx);
+        Assert.Contains("always-lib",   model.Dependencies.Select(d => d.Name));
+        Assert.Contains("optional-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_DepOptionField_ExcludedWhenNoEnabledOptions()
+    {
+        // When EnabledOptions is null, option-gated deps are excluded (no explicit activation)
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    always-lib   = "1.0.0"
+                    optional-lib = { version = "2.0.0", option = "myopt" }
+                }
+            }
+            """, "<test>");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            // EnabledOptions is null
+        };
+        var model = ProjectFlattener.Flatten(file.Project!, "<test>", ctx);
+        Assert.Contains("always-lib",   model.Dependencies.Select(d => d.Name));
+        Assert.DoesNotContain("optional-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_MultipleOptions_IncludedWhenAllActive()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    multi-lib = { version = "1.0.0", option = { "opt-a" "opt-b" } }
+                }
+            }
+            """, "<test>");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "opt-a", "opt-b" },
+        };
+        var model = ProjectFlattener.Flatten(file.Project!, "<test>", ctx);
+        Assert.Contains("multi-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_MultipleOptions_ExcludedWhenOnlyOneActive()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                dependencies {
+                    multi-lib = { version = "1.0.0", option = { "opt-a" "opt-b" } }
+                }
+            }
+            """, "<test>");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "opt-a" },
+        };
+        var model = ProjectFlattener.Flatten(file.Project!, "<test>", ctx);
+        Assert.DoesNotContain("multi-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_DepOptionField_FixtureFile()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "fixtures", "options.dotori");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "experimental", "simd" },
+        };
+        var file = DotoriParser.ParseFile(path);
+        var model = ProjectFlattener.Flatten(file.Project!, path, ctx);
+        Assert.Contains("always-lib",   model.Dependencies.Select(d => d.Name));
+        Assert.Contains("optional-lib", model.Dependencies.Select(d => d.Name));
+        Assert.Contains("extra-lib",    model.Dependencies.Select(d => d.Name));
+        Assert.Contains("multi-opt-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_DepOptionField_FixtureFile_PartialOptions()
+    {
+        // optional-lib needs only "experimental", multi-opt-lib needs both "simd" AND "experimental"
+        var path = Path.Combine(AppContext.BaseDirectory, "fixtures", "options.dotori");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "experimental" },
+        };
+        var file = DotoriParser.ParseFile(path);
+        var model = ProjectFlattener.Flatten(file.Project!, path, ctx);
+        Assert.Contains("always-lib",          model.Dependencies.Select(d => d.Name));
+        Assert.Contains("optional-lib",        model.Dependencies.Select(d => d.Name));
+        Assert.Contains("extra-lib",           model.Dependencies.Select(d => d.Name));
+        Assert.DoesNotContain("multi-opt-lib", model.Dependencies.Select(d => d.Name));
+    }
+
+    [TestMethod]
+    public void Flatten_DepOptionField_FixtureFile_OptionInactive()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "fixtures", "options.dotori");
+        var ctx = new TargetContext
+        {
+            Platform = "linux", Config = "debug",
+            Compiler = "clang", Runtime = "static",
+            EnabledOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+        };
+        var file = DotoriParser.ParseFile(path);
+        var model = ProjectFlattener.Flatten(file.Project!, path, ctx);
+        Assert.Contains("always-lib",          model.Dependencies.Select(d => d.Name));
+        Assert.DoesNotContain("optional-lib",  model.Dependencies.Select(d => d.Name));
+        Assert.DoesNotContain("extra-lib",     model.Dependencies.Select(d => d.Name));
+        Assert.DoesNotContain("multi-opt-lib", model.Dependencies.Select(d => d.Name));
+    }
+}
+
 // ─── TargetContext.ActiveAtoms with EnabledOptions ───────────────────────────
 
 [TestClass]

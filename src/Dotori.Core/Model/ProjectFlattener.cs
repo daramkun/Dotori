@@ -80,6 +80,7 @@ public static class ProjectFlattener
                 Commit  = EnvExpander.ExpandNullable(c.Commit),
                 Path    = EnvExpander.ExpandNullable(c.Path),
                 Version = EnvExpander.ExpandNullable(c.Version),
+                Options = c.Options,
             },
             _ => dep.Value,
         };
@@ -171,6 +172,13 @@ public static class ProjectFlattener
                     // Merge: later entries with same name overwrite earlier ones
                     foreach (var dep in b.Items)
                     {
+                        // Skip if this dependency is gated on options that are not all active
+                        if (dep.Value is ComplexDependency cd && cd.Options is not null)
+                        {
+                            bool depOptionsActive = context.EnabledOptions != null
+                                && cd.Options.All(o => context.EnabledOptions.Contains(o, StringComparer.OrdinalIgnoreCase));
+                            if (!depOptionsActive) continue;
+                        }
                         var expandedDep = ExpandDependency(dep);
                         var idx = model.Dependencies.FindIndex(d => d.Name == dep.Name);
                         if (idx >= 0) model.Dependencies[idx] = expandedDep;

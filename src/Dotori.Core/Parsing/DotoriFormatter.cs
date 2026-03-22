@@ -296,6 +296,8 @@ public static class DotoriFormatter
                     if (c.Commit  is not null) parts.Add($"commit = {QuoteString(c.Commit)}");
                     if (c.Path    is not null) parts.Add($"path = {QuoteString(c.Path)}");
                     if (c.Version is not null) parts.Add($"version = {QuoteString(c.Version)}");
+                    if (c.Options is { Count: 1 }) parts.Add($"option = {QuoteString(c.Options[0])}");
+                    else if (c.Options is { Count: > 1 }) parts.Add($"option = {{ {string.Join(" ", c.Options.Select(QuoteString))} }}");
                     sb.AppendLine($"{I(indent + 1)}{dep.Name} = {{ {string.Join(", ", parts)} }}");
                     break;
             }
@@ -371,6 +373,8 @@ public static class DotoriFormatter
                         if (c.Commit  is not null) parts.Add($"commit = {QuoteString(c.Commit)}");
                         if (c.Path    is not null) parts.Add($"path = {QuoteString(c.Path)}");
                         if (c.Version is not null) parts.Add($"version = {QuoteString(c.Version)}");
+                        if (c.Options is { Count: 1 }) parts.Add($"option = {QuoteString(c.Options[0])}");
+                    else if (c.Options is { Count: > 1 }) parts.Add($"option = {{ {string.Join(" ", c.Options.Select(QuoteString))} }}");
                         sb.AppendLine($"{I(indent + 2)}{dep.Name} = {{ {string.Join(", ", parts)} }}");
                         break;
                 }

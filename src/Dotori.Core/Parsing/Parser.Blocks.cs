@@ -185,6 +185,20 @@ public sealed partial class Parser
                 case "commit":  dep.Commit  = Expect(TokenKind.String).Text; break;
                 case "path":    dep.Path    = Expect(TokenKind.String).Text; break;
                 case "version": dep.Version = Expect(TokenKind.String).Text; break;
+                case "option":
+                    if (Current.Kind == TokenKind.String)
+                    {
+                        dep.Options = [Consume().Text];
+                    }
+                    else
+                    {
+                        Expect(TokenKind.LBrace);
+                        dep.Options = new List<string>();
+                        while (Current.Kind == TokenKind.String)
+                            dep.Options.Add(Consume().Text);
+                        Expect(TokenKind.RBrace);
+                    }
+                    break;
                 default: throw new ParseException($"Unknown dependency option '{key}'", Current.Location);
             }
             TryConsume(TokenKind.Comma);

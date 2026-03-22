@@ -425,11 +425,22 @@ dependencies {
 
     # 버전 범위 지정
     zlib    = { version = "^1.2.0" }
+
+    # 옵션 조건부 의존성 — 해당 옵션이 활성일 때만 포함
+    simd-utils = { path = "../simd-utils", option = "simd" }
+    tracy      = { git = "https://github.com/wolfpld/tracy", tag = "v0.11.0", option = "profiling" }
+
+    # 여러 옵션 모두 활성일 때만 포함 (AND 조건)
+    avx-accel  = { version = "2.0.0", option = { "simd" "avx2" } }
 }
 ```
 
 `path` 의존성은 빌드 순서 DAG에 포함되어 자동으로 선행 빌드됩니다.
 `git`/`version` 의존성은 패키지 매니저가 별도로 처리합니다.
+
+`option` 필드를 지정하면 해당 옵션이 활성일 때만 의존성이 포함됩니다.
+여러 옵션을 `{ }` 목록으로 지정하면 **모든 옵션이 동시에 활성일 때**만 포함됩니다 (AND 조건).
+옵션이 비활성이면 의존성은 완전히 무시됩니다.
 
 ---
 
