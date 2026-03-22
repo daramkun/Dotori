@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   ci:
@@ -13,10 +13,14 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
           - os: macos-latest
             rid: osx-arm64
           - os: ubuntu-latest
             rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
 
     runs-on: ${{ matrix.os }}
     name: CI (${{ matrix.rid }})
@@ -27,10 +31,10 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Install clang (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.rid, 'linux')
         run: sudo apt-get install -y clang zlib1g-dev
 
       - name: Restore
@@ -61,24 +65,3 @@ jobs:
           for f in build/worker/dotori-worker build/worker/dotori-worker.exe; do
             if [ -f "$f" ]; then cp "$f" dist/worker/; fi
           done
-
-      - name: Upload dotori artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: dotori-${{ matrix.rid }}
-          path: dist/cli/
-          retention-days: 7
-
-      - name: Upload dotori-server artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: dotori-server-${{ matrix.rid }}
-          path: dist/server/
-          retention-days: 7
-
-      - name: Upload dotori-worker artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: dotori-worker-${{ matrix.rid }}
-          path: dist/worker/
-          retention-days: 7
