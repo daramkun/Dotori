@@ -45,13 +45,19 @@ public static class DiagnosticsProvider
     {
         var projectDir = Path.GetDirectoryName(dotoriFilePath) ?? ".";
 
+        // Collect declared option names for reference validation
+        var declaredOptions = CollectDeclaredOptions(project.Items);
+
         // Check path dependencies: does the target .dotori exist?
+        // Also check option references in ComplexDependency.Options
         foreach (var item in FlattenItems(project.Items))
         {
             if (item is not DependenciesBlock deps) continue;
             foreach (var dep in deps.Items)
             {
-                if (dep.Value is ComplexDependency cd && cd.Path is { } pathVal)
+                if (dep.Value is not ComplexDependency cd) continue;
+
+                if (cd.Path is { } pathVal)
                 {
                     var resolved = Path.IsPathRooted(pathVal)
                         ? pathVal
@@ -59,7 +65,6 @@ public static class DiagnosticsProvider
                     var targetDotori = Path.Combine(resolved, ".dotori");
                     if (!File.Exists(targetDotori))
                     {
-                        // Use the location from the dependencies block
                         diagnostics.Add(new LspDiagnostic
                         {
                             Range = ZeroRange(deps.Location),
@@ -69,11 +74,68 @@ public static class DiagnosticsProvider
                         });
                     }
                 }
+
+                if (cd.Options is { } opts)
+                {
+                    foreach (var optName in opts)
+                    {
+                        if (!declaredOptions.Contains(optName, StringComparer.OrdinalIgnoreCase))
+                        {
+                            diagnostics.Add(new LspDiagnostic
+                            {
+                                Range = ZeroRange(deps.Location),
+                                Severity = 2, // Warning
+                                Source = "dotori",
+                                Message = $"dependency '{dep.Name}' references undeclared option '{optName}'",
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check path dependencies inside option block dependencies
+        foreach (var item in FlattenItems(project.Items))
+        {
+            if (item is not OptionBlock optBlock) continue;
+            foreach (var dep in optBlock.Dependencies)
+            {
+                if (dep.Value is ComplexDependency cd && cd.Path is { } pathVal)
+                {
+                    var resolved = Path.IsPathRooted(pathVal)
+                        ? pathVal
+                        : Path.GetFullPath(Path.Combine(projectDir, pathVal));
+                    var targetDotori = Path.Combine(resolved, ".dotori");
+                    if (!File.Exists(targetDotori))
+                    {
+                        diagnostics.Add(new LspDiagnostic
+                        {
+                            Range = ZeroRange(optBlock.Location),
+                            Severity = 2, // Warning
+                            Source = "dotori",
+                            Message = $"option '{optBlock.Name}': path dependency '{dep.Name}': no .dotori found at '{resolved}'",
+                        });
+                    }
+                }
             }
         }
 
         // Check compile-flags/link-flags without condition block
         CheckUnguardedFlags(project, diagnostics);
+    }
+
+    /// <summary>Collect all option names declared anywhere in the project (top-level + condition blocks).</summary>
+    private static List<string> CollectDeclaredOptions(IEnumerable<ProjectItem> items)
+    {
+        var names = new List<string>();
+        foreach (var item in items)
+        {
+            if (item is OptionBlock ob)
+                names.Add(ob.Name);
+            else if (item is ConditionBlock cb)
+                names.AddRange(CollectDeclaredOptions(cb.Items));
+        }
+        return names;
     }
 
     private static void CheckUnguardedFlags(ProjectDecl project, List<LspDiagnostic> diagnostics)

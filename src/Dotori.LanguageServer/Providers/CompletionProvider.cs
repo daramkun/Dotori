@@ -24,6 +24,7 @@ public static class CompletionProvider
         "compile-flags", "link-flags", "dependencies", "pch", "unity-build",
         "output", "pre-build", "post-build", "emscripten-flags",
         "framework-paths", "resources", "manifest",
+        "option",
     ];
 
     private static readonly string[] PackageKeywords =

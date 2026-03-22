@@ -44,6 +44,7 @@ public static class HoverProvider
             ["emscripten-flags"] = "Emscripten 전용 추가 플래그 (예: \"-sUSE_SDL=2\")",
             ["resources"]      = "Windows 리소스 파일 (.rc) 목록",
             ["manifest"]       = "Windows 앱 매니페스트 파일 (.manifest) 경로",
+            ["option"]         = "선택적 빌드 옵션 선언. `default` (필수), `defines`, `dependencies` 지정 가능. `dotori build --옵션명`으로 활성화",
             // Package fields
             ["name"]           = "패키지 이름",
             ["version"]        = "패키지 버전 (예: \"1.0.0\")",

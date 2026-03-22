@@ -85,4 +85,15 @@ public class HoverProviderTests
         Assert.AreEqual(0, hover.Range.End.Line);
         Assert.IsGreaterThan(hover.Range.Start.Character, hover.Range.End.Character);
     }
+
+    [TestMethod]
+    public void GetHover_Option_HasDescription()
+    {
+        const string text = "    option simd {";
+        // Hover over "option" at col 4
+        var hover = HoverProvider.GetHover(text, 0, 5);
+        Assert.IsNotNull(hover);
+        StringAssert.Contains(hover.Contents.Value, "option");
+        StringAssert.Contains(hover.Contents.Value, "default");
+    }
 }

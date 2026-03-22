@@ -127,4 +127,76 @@ public class DiagnosticsProviderTests
         Assert.IsNotNull(warning, "Should warn about missing path dependency");
         Assert.AreEqual(2, warning!.Severity);
     }
+
+    [TestMethod]
+    public void Analyze_DeclaredOptionReference_NoDiagnostic()
+    {
+        const string source = """
+            project MyApp {
+                type = executable
+                option simd {
+                    default = true
+                }
+                dependencies {
+                    my-lib = { version = "1.0.0", option = "simd" }
+                }
+            }
+            """;
+        var diags = DiagnosticsProvider.Analyze(source, "<test>");
+        Assert.IsFalse(diags.Any(d => d.Message.Contains("undeclared option")));
+    }
+
+    [TestMethod]
+    public void Analyze_UndeclaredOptionReference_WarningEmitted()
+    {
+        const string source = """
+            project MyApp {
+                type = executable
+                dependencies {
+                    my-lib = { version = "1.0.0", option = "nonexistent" }
+                }
+            }
+            """;
+        var diags = DiagnosticsProvider.Analyze(source, "<test>");
+        var warning = diags.FirstOrDefault(d => d.Message.Contains("undeclared option"));
+        Assert.IsNotNull(warning, "Should warn about undeclared option reference");
+        Assert.AreEqual(2, warning!.Severity);
+        StringAssert.Contains(warning.Message, "nonexistent");
+    }
+
+    [TestMethod]
+    public void Analyze_MultipleOptionsUndeclared_WarnsForEach()
+    {
+        const string source = """
+            project MyApp {
+                type = executable
+                option simd {
+                    default = true
+                }
+                dependencies {
+                    my-lib = { version = "1.0.0", option = { "simd" "missing-opt" } }
+                }
+            }
+            """;
+        var diags = DiagnosticsProvider.Analyze(source, "<test>");
+        var warnings = diags.Where(d => d.Message.Contains("undeclared option")).ToList();
+        Assert.HasCount(1, warnings, "Only 'missing-opt' is undeclared");
+        StringAssert.Contains(warnings[0].Message, "missing-opt");
+    }
+
+    [TestMethod]
+    public void Analyze_ValidOptionBlock_NoDiagnostics()
+    {
+        const string source = """
+            project MyApp {
+                type = executable
+                option extra {
+                    default = false
+                    defines { "EXTRA" }
+                }
+            }
+            """;
+        var diags = DiagnosticsProvider.Analyze(source, "<test>");
+        Assert.IsEmpty(diags);
+    }
 }

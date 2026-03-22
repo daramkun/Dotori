@@ -151,4 +151,17 @@ public class CompletionProviderTests
             }
         }
     }
+
+    [TestMethod]
+    public void GetCompletions_InsideProjectBlock_SuggestsOptionKeyword()
+    {
+        const string text = """
+            project MyApp {
+
+            }
+            """;
+        var list = CompletionProvider.GetCompletions(text, 1, 4);
+        var labels = list.Items.Select(i => i.Label).ToList();
+        CollectionAssert.Contains(labels, "option");
+    }
 }
