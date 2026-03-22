@@ -16,7 +16,7 @@ internal static class BuildCommandFactory
         var allOption         = new Option<bool>("--all")             { Description = "Build all projects without prompt" };
         var releaseOption     = new Option<bool>("--release")         { Description = "Build in Release configuration" };
         var targetOption      = new Option<string?>("--target")       { Description = "Build target (e.g. windows-x64, linux-x64)" };
-        var compilerOption    = new Option<string?>("--compiler")     { Description = "Compiler to use (msvc, clang)" };
+        var compilerOption    = new Option<string?>("--compiler")     { Description = "Compiler to use: 'msvc', 'clang', a binary name (e.g. clang++-18), or an absolute/relative path. Overrides the CXX/CC environment variables." };
         var runtimeLinkOption = new Option<string?>("--runtime-link") { Description = "Runtime link mode (static, dynamic)" };
         var libcOption        = new Option<string?>("--libc")         { Description = "C runtime library (glibc, musl)" };
         var stdlibOption      = new Option<string?>("--stdlib")       { Description = "C++ standard library (libc++, libstdc++)" };

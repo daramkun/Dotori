@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Dotori.Core.Toolchain;
 
 namespace Dotori.Tests.Graph;
@@ -129,5 +130,183 @@ public sealed class ToolchainDetectorTests
         };
 
         Assert.IsFalse(toolchain.IsMinGW, "Linux Clang should not be IsMinGW");
+    }
+
+    // ── CC/CXX env var & --compiler path override ────────────────────────────
+
+    [TestMethod]
+    public void IsKnownKindName_ReturnsTrue_ForMsvcAndClang()
+    {
+        Assert.IsTrue(ToolchainDetector.IsKnownKindName("msvc"));
+        Assert.IsTrue(ToolchainDetector.IsKnownKindName("clang"));
+        Assert.IsTrue(ToolchainDetector.IsKnownKindName("MSVC"),  "case-insensitive");
+        Assert.IsTrue(ToolchainDetector.IsKnownKindName("Clang"), "case-insensitive");
+    }
+
+    [TestMethod]
+    public void IsKnownKindName_ReturnsFalse_ForPathsAndOtherNames()
+    {
+        Assert.IsFalse(ToolchainDetector.IsKnownKindName("/usr/bin/clang++"));
+        Assert.IsFalse(ToolchainDetector.IsKnownKindName("clang++"));
+        Assert.IsFalse(ToolchainDetector.IsKnownKindName("clang-18"));
+        Assert.IsFalse(ToolchainDetector.IsKnownKindName("cl.exe"));
+        Assert.IsFalse(ToolchainDetector.IsKnownKindName(""));
+    }
+
+    [TestMethod]
+    public void GuessKindFromPath_Msvc_ForClAndClangCl()
+    {
+        Assert.AreEqual(CompilerKind.Msvc, ToolchainDetector.GuessKindFromPath("cl.exe"));
+        Assert.AreEqual(CompilerKind.Msvc, ToolchainDetector.GuessKindFromPath(@"C:\LLVM\bin\clang-cl.exe"));
+        Assert.AreEqual(CompilerKind.Msvc, ToolchainDetector.GuessKindFromPath("/usr/bin/clang-cl"));
+    }
+
+    [TestMethod]
+    public void GuessKindFromPath_Emscripten_ForEmcc()
+    {
+        Assert.AreEqual(CompilerKind.Emscripten, ToolchainDetector.GuessKindFromPath("emcc"));
+        Assert.AreEqual(CompilerKind.Emscripten, ToolchainDetector.GuessKindFromPath("/emsdk/emcc"));
+        Assert.AreEqual(CompilerKind.Emscripten, ToolchainDetector.GuessKindFromPath("em++"));
+    }
+
+    [TestMethod]
+    public void GuessKindFromPath_Clang_ForOtherNames()
+    {
+        Assert.AreEqual(CompilerKind.Clang, ToolchainDetector.GuessKindFromPath("clang++"));
+        Assert.AreEqual(CompilerKind.Clang, ToolchainDetector.GuessKindFromPath("/usr/bin/clang++-18"));
+        Assert.AreEqual(CompilerKind.Clang, ToolchainDetector.GuessKindFromPath("g++"));
+    }
+
+    [TestMethod]
+    public void ApplyCompilerOverride_ReplacesKindAndCompilerPath()
+    {
+        var original = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Clang,
+            CompilerPath = "/usr/bin/clang++",
+            LinkerPath   = "/usr/bin/clang++",
+            TargetTriple = "x86_64-unknown-linux-gnu",
+            SysRoot      = "/sysroot",
+            AppleSdk     = null,
+            Msvc         = null,
+        };
+
+        var overridden = ToolchainDetector.ApplyCompilerOverride(original, "/opt/llvm/bin/clang++-18");
+
+        Assert.AreEqual(CompilerKind.Clang,                   overridden.Kind);
+        Assert.AreEqual("/opt/llvm/bin/clang++-18",           overridden.CompilerPath);
+        Assert.AreEqual(original.LinkerPath,                  overridden.LinkerPath,   "LinkerPath preserved");
+        Assert.AreEqual(original.TargetTriple,                overridden.TargetTriple, "TargetTriple preserved");
+        Assert.AreEqual(original.SysRoot,                     overridden.SysRoot,      "SysRoot preserved");
+    }
+
+    [TestMethod]
+    public void ApplyCompilerOverride_UpdatesKindForClangCl()
+    {
+        var original = new ToolchainInfo
+        {
+            Kind         = CompilerKind.Clang,
+            CompilerPath = "/usr/bin/clang++",
+            LinkerPath   = "/usr/bin/ld.lld",
+            TargetTriple = "x86_64-pc-windows-msvc",
+        };
+
+        var overridden = ToolchainDetector.ApplyCompilerOverride(
+            original, @"C:\LLVM\bin\clang-cl.exe");
+
+        Assert.AreEqual(CompilerKind.Msvc, overridden.Kind, "Kind should become Msvc for clang-cl");
+        Assert.AreEqual(@"C:\LLVM\bin\clang-cl.exe", overridden.CompilerPath);
+    }
+
+    [TestMethod]
+    public void ResolveAsCompilerPath_ReturnsNull_ForNonExistentAbsolutePath()
+    {
+        var result = ToolchainDetector.ResolveAsCompilerPath("/nonexistent/path/to/clang++");
+        Assert.IsNull(result, "Should return null when file does not exist");
+    }
+
+    [TestMethod]
+    public void ResolveAsCompilerPath_ReturnsNull_ForNullOrEmpty()
+    {
+        Assert.IsNull(ToolchainDetector.ResolveAsCompilerPath(""));
+        Assert.IsNull(ToolchainDetector.ResolveAsCompilerPath("   "));
+    }
+
+    [TestMethod]
+    public void GetEnvCompilerPath_ReturnsNull_WhenNeitherCxxNorCcSet()
+    {
+        // Save and clear env vars
+        var savedCxx = Environment.GetEnvironmentVariable("CXX");
+        var savedCc  = Environment.GetEnvironmentVariable("CC");
+        try
+        {
+            Environment.SetEnvironmentVariable("CXX", null);
+            Environment.SetEnvironmentVariable("CC",  null);
+
+            var result = ToolchainDetector.GetEnvCompilerPath();
+            Assert.IsNull(result);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CXX", savedCxx);
+            Environment.SetEnvironmentVariable("CC",  savedCc);
+        }
+    }
+
+    [TestMethod]
+    public void GetEnvCompilerPath_ReturnsNull_WhenCxxPointsToNonExistentFile()
+    {
+        var saved = Environment.GetEnvironmentVariable("CXX");
+        try
+        {
+            Environment.SetEnvironmentVariable("CXX", "/nonexistent/compiler");
+            var result = ToolchainDetector.GetEnvCompilerPath();
+            Assert.IsNull(result);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CXX", saved);
+        }
+    }
+
+    [TestMethod]
+    public void Detect_CxxEnvVar_OverridesCompilerPath()
+    {
+        // Use the host's own dotnet runtime binary as a stand-in "compiler"
+        // executable that is guaranteed to exist on the current machine.
+        var fakeBinary = Environment.ProcessPath ?? typeof(object).Assembly.Location;
+        if (fakeBinary is null || !File.Exists(fakeBinary))
+            Assert.Inconclusive("Cannot determine a valid host executable for this test.");
+
+        // Pick a valid target for the current OS so detection normally succeeds.
+        var target = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)     ? "macos-arm64"
+                   : RuntimeInformation.IsOSPlatform(OSPlatform.Linux)   ? "linux-x64"
+                   : "windows-x64";
+
+        // Only run if the toolchain is available on this machine.
+        var baseline = ToolchainDetector.Detect(target);
+        if (baseline is null)
+            Assert.Inconclusive($"No toolchain detected for {target} — skipping override test.");
+
+        var savedCxx = Environment.GetEnvironmentVariable("CXX");
+        var savedCc  = Environment.GetEnvironmentVariable("CC");
+        try
+        {
+            Environment.SetEnvironmentVariable("CC",  null);
+            Environment.SetEnvironmentVariable("CXX", fakeBinary);
+
+            var result = ToolchainDetector.Detect(target);
+            Assert.IsNotNull(result, "Detect should succeed even with CXX override");
+            Assert.AreEqual(fakeBinary, result.CompilerPath,
+                "CompilerPath should be replaced by the CXX env var value");
+            // Other metadata (TargetTriple) should be preserved from normal detection.
+            Assert.AreEqual(baseline.TargetTriple, result.TargetTriple,
+                "TargetTriple should be preserved from baseline detection");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CXX", savedCxx);
+            Environment.SetEnvironmentVariable("CC",  savedCc);
+        }
     }
 }

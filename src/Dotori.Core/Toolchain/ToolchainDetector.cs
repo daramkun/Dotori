@@ -21,15 +21,35 @@ public static class ToolchainDetector
     ///         ios-arm64, ios-sim-arm64, tvos-arm64, watchos-arm64_32,
     ///         wasm32-emscripten, wasm32-bare
     /// </param>
-    /// <param name="preferredCompiler">Optional: "msvc" | "clang"</param>
+    /// <param name="preferredCompiler">
+    /// Optional: "msvc" | "clang" to prefer a compiler kind, or a path/name to
+    /// an explicit compiler binary (e.g. "/usr/local/bin/clang++-18", "clang++").
+    /// Takes precedence over the CXX / CC environment variables.
+    /// </param>
     /// <returns>Detected toolchain info, or null if not found.</returns>
     public static ToolchainInfo? Detect(string targetId, string? preferredCompiler = null)
     {
-        return targetId.ToLowerInvariant() switch
+        // Resolve an explicit compiler path from --compiler <path/name> or CXX/CC env vars.
+        // CLI flag takes precedence; env vars are the fallback.
+        string? compilerPathOverride = null;
+        string? kindPreference       = null;
+
+        if (preferredCompiler is not null)
         {
-            "windows-x64"       => DetectWindows("x64",      preferredCompiler),
-            "windows-x86"       => DetectWindows("x86",      preferredCompiler),
-            "windows-arm64"     => DetectWindows("arm64",    preferredCompiler),
+            if (IsKnownKindName(preferredCompiler))
+                kindPreference = preferredCompiler;       // "msvc" | "clang"
+            else
+                compilerPathOverride = ResolveAsCompilerPath(preferredCompiler); // path or bare name
+        }
+
+        // Fall back to CXX / CC environment variables when no CLI override was given.
+        compilerPathOverride ??= GetEnvCompilerPath();
+
+        var toolchain = targetId.ToLowerInvariant() switch
+        {
+            "windows-x64"       => DetectWindows("x64",   kindPreference),
+            "windows-x86"       => DetectWindows("x86",   kindPreference),
+            "windows-arm64"     => DetectWindows("arm64", kindPreference),
             "uwp-x64"           => DetectUwp("x64"),
             "uwp-arm64"         => DetectUwp("arm64"),
             "linux-x64"         => DetectLinux("x86_64"),
@@ -39,14 +59,21 @@ public static class ToolchainDetector
             "android-arm"       => DetectAndroid("armv7a-linux-androideabi"),
             "macos-arm64"       => DetectMacos("arm64-apple-macosx"),
             "macos-x64"         => DetectMacos("x86_64-apple-macosx"),
-            "ios-arm64"         => DetectApple("iphoneos",   "arm64-apple-ios"),
-            "ios-sim-arm64"     => DetectApple("iphonesimulator", "arm64-apple-ios-simulator"),
-            "tvos-arm64"        => DetectApple("appletvos",  "arm64-apple-tvos"),
-            "watchos-arm64_32"  => DetectApple("watchos",    "arm64_32-apple-watchos"),
+            "ios-arm64"         => DetectApple("iphoneos",       "arm64-apple-ios"),
+            "ios-sim-arm64"     => DetectApple("iphonesimulator","arm64-apple-ios-simulator"),
+            "tvos-arm64"        => DetectApple("appletvos",      "arm64-apple-tvos"),
+            "watchos-arm64_32"  => DetectApple("watchos",        "arm64_32-apple-watchos"),
             "wasm32-emscripten" => DetectEmscripten(),
             "wasm32-bare"       => DetectWasmBare(),
             _                   => null,
         };
+
+        // Apply explicit compiler path override, keeping all platform-specific
+        // metadata (sysroot, SDK paths, Apple SDK, …) from the detected toolchain.
+        if (toolchain is not null && compilerPathOverride is not null)
+            toolchain = ApplyCompilerOverride(toolchain, compilerPathOverride);
+
+        return toolchain;
     }
 
     /// <summary>
@@ -439,6 +466,108 @@ public static class ToolchainDetector
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    /// <summary>Returns true for the two reserved kind-preference names.</summary>
+    internal static bool IsKnownKindName(string value) =>
+        value.Equals("msvc", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("clang", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reads the CXX environment variable (then CC as fallback) and returns the
+    /// compiler path if the file exists, or null if neither variable points to a
+    /// valid executable.
+    /// </summary>
+    internal static string? GetEnvCompilerPath()
+    {
+        var cxx = Environment.GetEnvironmentVariable("CXX");
+        if (cxx is not null)
+        {
+            var resolved = ResolveAsCompilerPath(cxx);
+            if (resolved is not null) return resolved;
+        }
+
+        var cc = Environment.GetEnvironmentVariable("CC");
+        if (cc is not null)
+        {
+            var resolved = ResolveAsCompilerPath(cc);
+            if (resolved is not null) return resolved;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves a compiler value to an absolute path:
+    /// <list type="bullet">
+    ///   <item>Absolute path → checked directly.</item>
+    ///   <item>Relative path (contains separator or starts with ./) → resolved via CWD.</item>
+    ///   <item>Bare name (e.g. "clang++") → searched in PATH.</item>
+    /// </list>
+    /// Returns null when the executable cannot be found.
+    /// </summary>
+    internal static string? ResolveAsCompilerPath(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (Path.IsPathRooted(value))
+            return File.Exists(value) ? value : null;
+
+        if (value.Contains(Path.DirectorySeparatorChar) ||
+            value.Contains(Path.AltDirectorySeparatorChar))
+        {
+            var full = Path.GetFullPath(value);
+            return File.Exists(full) ? full : null;
+        }
+
+        // Bare name — search PATH (and add .exe on Windows).
+        return FindInPath(value);
+    }
+
+    /// <summary>
+    /// Infers <see cref="CompilerKind"/> from the compiler binary file name.
+    /// Handles both Unix ('/') and Windows ('\') path separators regardless of host OS.
+    /// </summary>
+    internal static CompilerKind GuessKindFromPath(string compilerPath)
+    {
+        // Split on both separators so Windows paths work correctly on Unix hosts.
+        var parts    = compilerPath.Split('/', '\\');
+        var fileName = parts.LastOrDefault(p => p.Length > 0) ?? compilerPath;
+
+        var dotIdx = fileName.LastIndexOf('.');
+        var name   = (dotIdx >= 0 ? fileName[..dotIdx] : fileName)
+                         .ToLowerInvariant();
+
+        if (name is "cl" || name.StartsWith("clang-cl"))
+            return CompilerKind.Msvc;
+
+        if (name.StartsWith("emcc") || name.StartsWith("em++"))
+            return CompilerKind.Emscripten;
+
+        return CompilerKind.Clang;
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="ToolchainInfo"/> identical to <paramref name="original"/>
+    /// except that <see cref="ToolchainInfo.CompilerPath"/> and
+    /// <see cref="ToolchainInfo.Kind"/> are replaced by values derived from
+    /// <paramref name="compilerPath"/>.
+    /// All platform-specific metadata (sysroot, SDK paths, Apple SDK, MSVC paths)
+    /// are preserved so that the rest of the build pipeline still works.
+    /// </summary>
+    internal static ToolchainInfo ApplyCompilerOverride(
+        ToolchainInfo original, string compilerPath)
+    {
+        return new ToolchainInfo
+        {
+            Kind         = GuessKindFromPath(compilerPath),
+            CompilerPath = compilerPath,
+            LinkerPath   = original.LinkerPath,
+            TargetTriple = original.TargetTriple,
+            SysRoot      = original.SysRoot,
+            Msvc         = original.Msvc,
+            AppleSdk     = original.AppleSdk,
+        };
+    }
 
     private static string HostArch =>
         RuntimeInformation.ProcessArchitecture switch
