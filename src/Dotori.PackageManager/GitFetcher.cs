@@ -6,63 +6,63 @@ namespace Dotori.PackageManager;
 
 /// <summary>
 /// Fetches packages from git repositories.
-/// Cache location: ~/.dotori/packages/&lt;name&gt;/&lt;version&gt;/
+/// Packages are stored in the project-local deps/ directory: &lt;depsRoot&gt;/&lt;name&gt;/
 /// </summary>
 public static class GitFetcher
 {
-    private static string CacheRoot =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".dotori", "packages");
-
     /// <summary>
-    /// Get the local cache directory for a package if already fetched, otherwise null.
+    /// Returns the local deps directory for the given package if it already exists,
+    /// otherwise null.
     /// </summary>
-    public static string? GetCacheDir(string name, string tagOrCommit)
+    /// <param name="depsRoot">Absolute path to the project's deps/ directory.</param>
+    /// <param name="name">Package name.</param>
+    public static string? GetLocalDepDir(string depsRoot, string name)
     {
-        var cacheDir = Path.Combine(CacheRoot, name, SanitizeVersion(tagOrCommit));
-        if (Directory.Exists(Path.Combine(cacheDir, ".git")) ||
-            (Directory.Exists(cacheDir) && Directory.GetFiles(cacheDir).Length > 0))
-            return cacheDir;
+        var depDir = Path.Combine(depsRoot, name);
+        if (Directory.Exists(Path.Combine(depDir, ".git")) ||
+            (Directory.Exists(depDir) && Directory.GetFiles(depDir).Length > 0))
+            return depDir;
         return null;
     }
 
     /// <summary>
-    /// Fetch (or use cached) a git dependency.
+    /// Fetch (or reuse existing) a git dependency into the project-local deps/ directory.
     /// </summary>
+    /// <param name="depsRoot">Absolute path to the project's deps/ directory.</param>
     /// <param name="name">Package name.</param>
     /// <param name="gitUrl">Git repository URL.</param>
     /// <param name="tagOrCommit">Tag or commit hash to check out.</param>
     /// <returns>Absolute path to the local checkout directory.</returns>
     public static async Task<string> FetchAsync(
+        string depsRoot,
         string name,
         string gitUrl,
         string tagOrCommit,
         CancellationToken ct = default)
     {
-        var cacheDir = Path.Combine(CacheRoot, name, SanitizeVersion(tagOrCommit));
-        if (Directory.Exists(Path.Combine(cacheDir, ".git")) ||
-            Directory.Exists(cacheDir) && Directory.GetFiles(cacheDir).Length > 0)
+        var depDir = Path.Combine(depsRoot, name);
+        if (Directory.Exists(Path.Combine(depDir, ".git")) ||
+            Directory.Exists(depDir) && Directory.GetFiles(depDir).Length > 0)
         {
-            // Already cached
-            return cacheDir;
+            // Already fetched
+            return depDir;
         }
 
-        Directory.CreateDirectory(cacheDir);
+        Directory.CreateDirectory(depDir);
 
         // Clone with depth 1 if it looks like a tag; full clone for commits
         bool isTag    = tagOrCommit.StartsWith('v') || !IsLikelyCommitHash(tagOrCommit);
         string branch = isTag ? $"--branch {tagOrCommit} --depth 1" : "--depth 1";
 
-        await RunGitAsync($"clone {branch} {gitUrl} \"{cacheDir}\"", ct);
+        await RunGitAsync($"clone {branch} {gitUrl} \"{depDir}\"", ct);
 
         if (!isTag)
         {
             // Checkout specific commit
-            await RunGitAsync($"-C \"{cacheDir}\" checkout {tagOrCommit}", ct);
+            await RunGitAsync($"-C \"{depDir}\" checkout {tagOrCommit}", ct);
         }
 
-        return cacheDir;
+        return depDir;
     }
 
     /// <summary>
@@ -86,9 +86,6 @@ public static class GitFetcher
 
     private static bool IsLikelyCommitHash(string s) =>
         s.Length >= 7 && s.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'));
-
-    private static string SanitizeVersion(string v) =>
-        string.Concat(v.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
 
     private static async Task RunGitAsync(string args, CancellationToken ct)
     {

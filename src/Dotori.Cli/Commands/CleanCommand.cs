@@ -11,15 +11,18 @@ internal static class CleanCommandFactory
         var command = new Command("clean", "Remove build artifacts");
 
         var projectOption = new Option<string?>("--project") { Description = "Path to .dotori file or directory" };
-        var allOption     = new Option<bool>("--all")        { Description = "Remove all cached artifacts including packages" };
+        var allOption     = new Option<bool>("--all")        { Description = "Remove all cached build artifacts (use --deps to also remove fetched packages)" };
+        var depsOption    = new Option<bool>("--deps")       { Description = "Also remove the deps/ directory containing fetched packages" };
 
         command.Add(projectOption);
         command.Add(allOption);
+        command.Add(depsOption);
 
         command.SetAction((parseResult) =>
         {
             var projectArg = parseResult.GetValue(projectOption);
             var cleanAll   = parseResult.GetValue(allOption);
+            var cleanDeps  = parseResult.GetValue(depsOption);
 
             var paths = BuildContext.ResolveProjectPaths(projectArg, buildAll: true);
 
@@ -54,16 +57,18 @@ internal static class CleanCommandFactory
                 catch { /* ignore parse errors during clean */ }
             }
 
-            // Remove global package cache
-            if (cleanAll)
+            // Remove deps/ directories (fetched packages)
+            if (cleanDeps)
             {
-                var globalCache = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    ".dotori", "packages");
-                if (Directory.Exists(globalCache))
+                foreach (var dotoriPath in paths)
                 {
-                    Console.WriteLine($"  Removing {globalCache}");
-                    Directory.Delete(globalCache, recursive: true);
+                    var projectDir = Path.GetDirectoryName(dotoriPath)!;
+                    var depsDir = Path.Combine(projectDir, DotoriConstants.DepsDir);
+                    if (Directory.Exists(depsDir))
+                    {
+                        Console.WriteLine($"  Removing {depsDir}");
+                        Directory.Delete(depsDir, recursive: true);
+                    }
                 }
             }
 

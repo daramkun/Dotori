@@ -152,8 +152,16 @@ dotori clean [옵션]
 | 옵션 | 설명 |
 |------|------|
 | `--all` | 모든 프로젝트의 빌드 캐시 정리 |
+| `--deps` | `deps/` 디렉토리(받아온 패키지)도 함께 삭제 |
 
 `.dotori-cache/` 디렉토리와 `output { }` 블록에서 지정한 경로의 복사본도 함께 삭제됩니다.
+`--deps` 플래그를 추가하면 `deps/` 디렉토리도 삭제되며, 다음 빌드 시 패키지를 다시 받아옵니다.
+
+```bash
+dotori clean              # 빌드 캐시만 삭제
+dotori clean --deps       # 빌드 캐시 + 받아온 패키지(deps/) 삭제
+dotori clean --all --deps # 모든 프로젝트의 빌드 캐시 + deps/ 삭제
+```
 
 ---
 
@@ -385,8 +393,14 @@ dotori unyank <패키지명>@<버전>     # 비활성화 취소
     ├── linux-x64-glibc-static-debug/
     └── wasm32-emscripten-release/
 
-~/.dotori/                   ← 전역 캐시
-└── packages/                ← 다운로드된 패키지
-    ├── fmt/10.2.0/
-    └── spdlog/1.13.0/
+deps/                        ← 받아온 패키지 (dotori clean --deps 로 삭제)
+├── fmt/
+│   ├── .dotori
+│   └── .dotori-cache/     # 이 프로젝트에서만 사용하는 빌드 캐시
+└── spdlog/
+    ├── .dotori
+    └── .dotori-cache/
 ```
+
+> **참고**: 패키지는 전역 캐시(`~/.dotori/packages/`) 없이 각 프로젝트의 `deps/` 폴더에 독립적으로 저장됩니다.
+> 이를 통해 프로젝트마다 다른 빌드 옵션(defines, compile-flags 등)으로 동일 패키지를 빌드해도 캐시가 충돌하지 않습니다.

@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Parsing;
 using Dotori.PackageManager.Config;
 
@@ -12,17 +13,21 @@ public static class DependencyResolver
     /// <summary>
     /// Resolve all non-path dependencies from a project file and update the lock file.
     /// Uses PubGrub for version-constraint solving and conflict detection.
+    /// Packages are fetched into &lt;projectDir&gt;/deps/&lt;name&gt;/.
     /// </summary>
     /// <param name="project">Parsed project declaration.</param>
     /// <param name="existingLock">Existing lock file to update.</param>
+    /// <param name="projectDir">Absolute path to the project directory (contains .dotori file).</param>
     /// <param name="registryUrl">레지스트리 URL (null이면 설정에서 읽음).</param>
     /// <returns>Updated lock file.</returns>
     public static async Task<LockFile> ResolveAsync(
         ProjectDecl project,
         LockFile existingLock,
+        string projectDir,
         string? registryUrl = null,
         CancellationToken ct = default)
     {
+        var depsRoot = Path.Combine(projectDir, DotoriConstants.DepsDir);
         // Collect all non-path dependencies from the project
         var rootDeps = CollectRootDependencies(project);
 
@@ -72,7 +77,7 @@ public static class DependencyResolver
             // Need to fetch / record this package
             if (source.TryGetGitInfo(name, out var gitUrl, out var tagOrCommit))
             {
-                var dir  = await GitFetcher.FetchAsync(name, gitUrl!, tagOrCommit!, ct);
+                var dir  = await GitFetcher.FetchAsync(depsRoot, name, gitUrl!, tagOrCommit!, ct);
                 var hash = GitFetcher.ComputeDirectoryHash(dir);
                 var sourceStr = $"git+{gitUrl}#{tagOrCommit}";
 
@@ -99,7 +104,7 @@ public static class DependencyResolver
                 var owner = name[..slash];
                 var pkgName = name[(slash + 1)..];
 
-                await PackageInstaller.InstallAsync(registryClient, resolvedRegUrl, owner, pkgName, version.ToString(), ct);
+                await PackageInstaller.InstallAsync(depsRoot, registryClient, resolvedRegUrl, owner, pkgName, version.ToString(), ct);
                 var entry = new LockEntry
                 {
                     Name    = name,

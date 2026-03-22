@@ -5,29 +5,30 @@ using System.Security.Cryptography;
 namespace Dotori.PackageManager;
 
 /// <summary>
-/// 레지스트리에서 패키지를 다운로드하고 캐시에 압축해제합니다.
-/// 캐시 위치: ~/.dotori/registry-cache/{host}/{owner}/{name}/{version}/
+/// 레지스트리에서 패키지를 다운로드하고 프로젝트 로컬 deps/ 디렉토리에 압축해제합니다.
+/// 저장 위치: &lt;depsRoot&gt;/&lt;name&gt;/
 /// </summary>
 public static class PackageInstaller
 {
-    private static string CacheRoot =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".dotori", "registry-cache");
+    /// <summary>
+    /// Returns the local deps directory for the given package.
+    /// </summary>
+    /// <param name="depsRoot">Absolute path to the project's deps/ directory.</param>
+    /// <param name="name">Package name (short name, without owner prefix).</param>
+    public static string GetLocalDepDir(string depsRoot, string name) =>
+        Path.Combine(depsRoot, name);
 
-    public static string GetCacheDir(string registryUrl, string owner, string name, string version)
+    /// <summary>
+    /// Returns true if the package has already been installed into deps/.
+    /// </summary>
+    public static bool IsInstalled(string depsRoot, string name)
     {
-        var host = new Uri(registryUrl).Host.Replace(':', '_');
-        return Path.Combine(CacheRoot, host, owner, name, version);
-    }
-
-    public static bool IsCached(string registryUrl, string owner, string name, string version)
-    {
-        var dir = GetCacheDir(registryUrl, owner, name, version);
+        var dir = GetLocalDepDir(depsRoot, name);
         return Directory.Exists(dir) && File.Exists(Path.Combine(dir, ".dotori"));
     }
 
     public static async Task<string> InstallAsync(
+        string depsRoot,
         RegistryClient client,
         string registryUrl,
         string owner,
@@ -35,16 +36,16 @@ public static class PackageInstaller
         string version,
         CancellationToken ct = default)
     {
-        var cacheDir = GetCacheDir(registryUrl, owner, name, version);
-        if (IsCached(registryUrl, owner, name, version))
-            return cacheDir;
+        var depDir = GetLocalDepDir(depsRoot, name);
+        if (IsInstalled(depsRoot, name))
+            return depDir;
 
-        Directory.CreateDirectory(cacheDir);
+        Directory.CreateDirectory(depDir);
 
         await using var archiveStream = await client.DownloadAsync(owner, name, version, ct);
 
         // 임시 파일에 다운로드
-        var tmpFile = Path.Combine(cacheDir, $".{name}-{version}.dotori-pkg.tmp");
+        var tmpFile = Path.Combine(depDir, $".{name}-{version}.dotori-pkg.tmp");
         try
         {
             await using (var fs = new FileStream(tmpFile, FileMode.Create, FileAccess.Write, FileShare.None,
@@ -54,7 +55,7 @@ public static class PackageInstaller
             }
 
             // 압축 해제
-            await ExtractAsync(tmpFile, cacheDir, ct);
+            await ExtractAsync(tmpFile, depDir, ct);
         }
         finally
         {
@@ -62,7 +63,7 @@ public static class PackageInstaller
                 File.Delete(tmpFile);
         }
 
-        return cacheDir;
+        return depDir;
     }
 
     private static async Task ExtractAsync(string archivePath, string targetDir, CancellationToken ct)

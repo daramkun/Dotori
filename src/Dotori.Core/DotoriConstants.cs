@@ -17,6 +17,9 @@ public static class DotoriConstants
     /// <summary>Root cache directory created inside every project directory.</summary>
     public const string CacheDir = ".dotori-cache";
 
+    /// <summary>Local dependencies directory created inside the project directory (mirrors Elixir Mix's deps/).</summary>
+    public const string DepsDir = "deps";
+
     /// <summary>Sub-directory under <see cref="CacheDir"/> for compiled object files.</summary>
     public const string ObjSubDir = "obj";
 

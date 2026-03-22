@@ -1018,7 +1018,8 @@ LSP 서버(`Dotori.LanguageServer`)가 `.dotori` 편집 기능을 담당하고,
 ### Phase 1-G: 패키지 매니저
 
 - [x] PubGrub 의존성 해결기
-- [x] Git Fetcher (`~/.dotori/packages/<n>/<ver>/`)
+- [x] Git Fetcher (`<project>/deps/<n>/`)
+- [x] Registry 패키지 설치 (`<project>/deps/<n>/`)
 - [x] Lock 파일 관리 (`.dotori.lock`)
 
 ---
@@ -1062,6 +1063,8 @@ dotori test --filter "MyTest*"
 # 정리
 dotori clean
 dotori clean --all
+dotori clean --deps          # deps/ 디렉토리(받아온 패키지) 삭제
+dotori clean --all --deps    # 빌드 캐시 + deps/ 모두 삭제
 
 # 포매팅
 dotori format                            # 현재 디렉토리 탐색
@@ -1403,11 +1406,13 @@ dotori generate-compile-commands --output ./         # 출력 경로 지정
 
 ---
 
-## 12. 캐시 디렉토리 구조
+## 12. 디렉토리 구조
+
+패키지는 전역 캐시 없이 선언한 프로젝트의 `deps/` 에 저장됩니다 (Elixir Mix 방식).
 
 ```
 프로젝트 로컬:
-.dotori-cache/
+.dotori-cache/               ← 빌드 아티팩트 캐시
 ├── hashes.db
 ├── bmi/
 │   ├── MyLib.ifc          # MSVC
@@ -1422,11 +1427,13 @@ dotori generate-compile-commands --output ./         # 출력 경로 지정
     ├── android-arm64-debug/
     └── wasm32-emscripten-release/
 
-전역:
-~/.dotori/
-└── packages/
-    ├── fmt/10.2.0/
-    └── spdlog/1.13.0/
+deps/                        ← 받아온 패키지 (dotori clean --deps 로 삭제)
+├── fmt/
+│   ├── .dotori
+│   └── .dotori-cache/     # fmt 자체의 빌드 캐시 (프로젝트별 격리)
+└── spdlog/
+    ├── .dotori
+    └── .dotori-cache/
 ```
 
 ---

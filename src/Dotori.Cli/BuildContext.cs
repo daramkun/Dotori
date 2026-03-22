@@ -1,3 +1,4 @@
+using Dotori.Core;
 using Dotori.Core.Graph;
 using Dotori.Core.Location;
 using Dotori.Core.Model;
@@ -92,7 +93,7 @@ internal static class BuildContext
             {
                 try
                 {
-                    lockFile = await DependencyResolver.ResolveAsync(file.Project, existingLock, ct: ct);
+                    lockFile = await DependencyResolver.ResolveAsync(file.Project, existingLock, projectDir, ct: ct);
                     LockManager.Save(lockFile, projectDir);
                 }
                 catch (Exception ex)
@@ -124,7 +125,9 @@ internal static class BuildContext
                 try
                 {
                     Console.WriteLine($"  Fetching {entry.Name} ({tagOrCommit})...");
-                    localDir = await GitFetcher.FetchAsync(entry.Name, gitUrl, tagOrCommit, ct);
+                    localDir = await GitFetcher.FetchAsync(
+                        Path.Combine(projectDir, DotoriConstants.DepsDir),
+                        entry.Name, gitUrl, tagOrCommit, ct);
                 }
                 catch (Exception ex)
                 {
