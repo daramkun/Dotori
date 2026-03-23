@@ -41,6 +41,7 @@ public static class HoverProvider
             ["output"]         = "빌드 결과물 복사 경로 설정 (binaries, libraries, symbols)",
             ["pre-build"]      = "빌드 전 실행할 셸 명령어 목록",
             ["post-build"]     = "빌드 후 실행할 셸 명령어 목록",
+            ["copy"]           = "파일/폴더를 지정 경로로 복사. `from \"glob\" to \"dest/\"` 형식. 변경된 파일만 복사 (증분). 조건 블록과 조합 가능",
             ["emscripten-flags"] = "Emscripten 전용 추가 플래그 (예: \"-sUSE_SDL=2\")",
             ["resources"]      = "Windows 리소스 파일 (.rc) 목록",
             ["manifest"]       = "Windows 앱 매니페스트 파일 (.manifest) 경로",

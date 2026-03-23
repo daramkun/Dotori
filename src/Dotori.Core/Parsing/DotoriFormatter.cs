@@ -227,6 +227,9 @@ public static class DotoriFormatter
             case PostBuildBlock b:
                 FormatStringValuesBlock(sb, "post-build", b.Commands, indent);
                 break;
+            case CopyBlock b:
+                FormatCopyBlock(sb, b, indent);
+                break;
             case ConditionBlock b:
                 FormatConditionBlock(sb, b, indent);
                 break;
@@ -335,6 +338,24 @@ public static class DotoriFormatter
         if (block.Binaries  is not null) sb.AppendLine($"{I(indent + 1)}binaries = {QuoteString(block.Binaries)}");
         if (block.Libraries is not null) sb.AppendLine($"{I(indent + 1)}libraries = {QuoteString(block.Libraries)}");
         if (block.Symbols   is not null) sb.AppendLine($"{I(indent + 1)}symbols = {QuoteString(block.Symbols)}");
+        sb.AppendLine($"{I(indent)}}}");
+    }
+
+    private static void FormatCopyBlock(StringBuilder sb, CopyBlock block, int indent)
+    {
+        sb.AppendLine($"{I(indent)}copy {{");
+        if (block.Items.Count > 0)
+        {
+            // Align "to" column for readability
+            int maxFromLen = block.Items.Max(ci => QuoteString(ci.From).Length);
+            foreach (var ci in block.Items)
+            {
+                var fromQ = QuoteString(ci.From);
+                var toQ   = QuoteString(ci.To);
+                var pad   = new string(' ', maxFromLen - fromQ.Length);
+                sb.AppendLine($"{I(indent + 1)}from {fromQ}{pad}  to {toQ}");
+            }
+        }
         sb.AppendLine($"{I(indent)}}}");
     }
 

@@ -246,6 +246,17 @@ public sealed class PostBuildBlock : ProjectItem
     public List<string> Commands { get; } = new();
 }
 
+public sealed class CopyItem(string from, string to)
+{
+    public string From { get; } = from;
+    public string To   { get; } = to;
+}
+
+public sealed class CopyBlock : ProjectItem
+{
+    public List<CopyItem> Items { get; } = new();
+}
+
 public sealed class ConditionBlock(ConditionExpr condition) : ProjectItem
 {
     public ConditionExpr Condition { get; } = condition;

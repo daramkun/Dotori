@@ -41,6 +41,9 @@ public static class DotoriConstants
     /// <summary>Module export-map file name written inside the BMI directory.</summary>
     public const string ModuleMapFileName = "module-map.json";
 
+    /// <summary>Copy manifest file name written inside the cache directory. Maps source → destination paths.</summary>
+    public const string CopyManifestFileName = "copy-manifest.json";
+
     // ─── Default numeric values ────────────────────────────────────────────────
 
     /// <summary>Default number of source files per unity-build batch.</summary>

@@ -69,6 +69,9 @@ public sealed class FlatProjectModel
     public List<string> PreBuildCommands  { get; } = new();
     public List<string> PostBuildCommands { get; } = new();
 
+    // File copy items (accumulated across all applicable condition blocks)
+    public List<CopyItem> CopyItems { get; } = new();
+
     // Module export map generation (default: true when modules are present)
     public bool ModuleExportMap { get; set; } = true;
 }

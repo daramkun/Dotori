@@ -339,6 +339,30 @@ public sealed partial class Parser
         return block;
     }
 
+    // ─── copy block ─────────────────────────────────────────────────────────
+
+    private CopyBlock ParseCopyBlock(SourceLocation loc)
+    {
+        Consume(); // "copy"
+        Expect(TokenKind.LBrace);
+        var block = new CopyBlock { Location = loc };
+        while (true)
+        {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident || Current.Text != "from") break;
+            Consume(); // "from"
+            var from = Expect(TokenKind.String).Text;
+            if (Current.Kind != TokenKind.Ident || Current.Text != "to")
+                throw new ParseException("Expected 'to' after 'from' value", Current.Location);
+            Consume(); // "to"
+            var to = Expect(TokenKind.String).Text;
+            block.Items.Add(new CopyItem(from, to));
+        }
+        SkipComments();
+        Expect(TokenKind.RBrace);
+        return block;
+    }
+
     // ─── pre-build / post-build blocks ──────────────────────────────────────
 
     private ProjectItem ParseBuildScriptBlock(SourceLocation loc, bool isPost)

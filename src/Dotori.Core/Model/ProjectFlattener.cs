@@ -215,6 +215,13 @@ public static class ProjectFlattener
                     model.PostBuildCommands.AddRange(b.Commands.Select(EnvExpander.Expand));
                     break;
 
+                case CopyBlock b:
+                    foreach (var ci in b.Items)
+                        model.CopyItems.Add(new CopyItem(
+                            EnvExpander.Expand(ci.From),
+                            EnvExpander.Expand(ci.To)));
+                    break;
+
                 case OptionBlock b:
                     // Option is active if explicitly enabled, explicitly disabled, or default
                     bool optionActive = context.EnabledOptions != null

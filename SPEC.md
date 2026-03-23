@@ -467,6 +467,7 @@ project_item    ::= project_prop
                   | output_block
                   | pre_build_block
                   | post_build_block
+                  | copy_block
                   | condition "{" { project_item } "}"
 
 project_prop    ::= "type"               "=" project_type
@@ -548,6 +549,17 @@ post_build_block ::= "post-build" "{" { string } "}"
      DOTORI_CONFIG      — Debug | Release
      DOTORI_PROJECT_DIR — 프로젝트 루트 절대 경로
      DOTORI_OUTPUT_DIR  — 링크 결과물 위치 (.dotori-cache/obj/<target>-<config>/) *)
+
+copy_block      ::= "copy" "{" { copy_item } "}"
+copy_item       ::= "from" path_glob "to" string
+
+(* from: glob 패턴 또는 디렉토리 경로. 절대경로(/ 또는 드라이브 문자 시작) 또는 프로젝트 루트 기준 상대경로.
+   to:   복사 대상 디렉토리. 절대경로 또는 상대경로. 존재하지 않으면 자동 생성.
+   디렉토리 지정 시 하위 파일 구조를 to 하위에 그대로 유지.
+   glob 지정 시 glob 루트(와일드카드 이전 경로) 기준 상대 구조 유지.
+   변경된 파일만 복사 (SHA-256 해시 증분 검사). 조건 블록 적용 가능.
+   복사된 파일 목록은 .dotori-cache/copy-manifest.json 에 기록.
+   dotori clean 시 매니페스트 기반으로 복사된 파일만 개별 삭제. *)
 
 package_decl    ::= "package" "{" { package_item } "}"
 package_item    ::= "name"        "=" string

@@ -22,7 +22,7 @@ public static class CompletionProvider
         "android-api-level", "macos-min", "ios-min", "tvos-min", "watchos-min",
         "sources", "modules", "headers", "defines", "links", "frameworks",
         "compile-flags", "link-flags", "dependencies", "pch", "unity-build",
-        "output", "pre-build", "post-build", "emscripten-flags",
+        "output", "pre-build", "post-build", "copy", "emscripten-flags",
         "framework-paths", "resources", "manifest",
         "option",
     ];

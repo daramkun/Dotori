@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Dotori.Core;
+using Dotori.Core.Build;
 using Dotori.Core.Parsing;
 
 namespace Dotori.Cli.Commands;
@@ -30,8 +31,24 @@ internal static class CleanCommandFactory
             {
                 var projectDir = Path.GetDirectoryName(dotoriPath)!;
 
-                // Remove .dotori-cache/
                 var cacheDir = Path.Combine(projectDir, DotoriConstants.CacheDir);
+
+                // Remove files copied by copy { } blocks (using manifest — read before cacheDir is deleted)
+                var manifestPath = Path.Combine(cacheDir, DotoriConstants.CopyManifestFileName);
+                if (File.Exists(manifestPath))
+                {
+                    var manifest = BuildPlanner.LoadManifest(manifestPath);
+                    foreach (var destPath in manifest.Values)
+                    {
+                        if (File.Exists(destPath))
+                        {
+                            Console.WriteLine($"  Removing {destPath}");
+                            File.Delete(destPath);
+                        }
+                    }
+                }
+
+                // Remove .dotori-cache/
                 if (Directory.Exists(cacheDir))
                 {
                     Console.WriteLine($"  Removing {cacheDir}");

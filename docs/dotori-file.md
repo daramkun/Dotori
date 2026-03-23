@@ -354,6 +354,62 @@ post-build {
 
 ---
 
+## copy 블록 — 파일 복사
+
+빌드 완료 후 파일 또는 폴더를 지정 경로로 복사합니다.
+SHA-256 해시 기반 증분 검사를 수행하여 **변경된 파일만** 복사합니다.
+
+```
+copy {
+    from "assets/**/*"      to "bin/assets/"
+    from "config/*.json"    to "bin/"
+    from "shaders/"         to "bin/shaders/"
+}
+```
+
+### 경로 규칙
+
+| 항목 | 설명 |
+|------|------|
+| `from` — 절대 경로 | `/`로 시작(Unix) 또는 드라이브 문자(`C:\`)로 시작하면 절대 경로 |
+| `from` — 상대 경로 | 프로젝트 루트 기준. glob 패턴(`**`, `*`, `?`) 또는 디렉토리 경로 허용 |
+| `to` — 절대/상대 경로 | 동일 규칙. 항상 디렉토리로 해석. 존재하지 않으면 자동 생성 |
+| 디렉토리 지정 | `from "shaders/"` → `shaders/` 하위 파일 구조를 `to/` 아래에 그대로 유지 |
+| glob 지정 | 와일드카드 앞의 경로를 root로 삼아 상대 구조 유지. `from "a/**/*"` → `a/sub/f.png` → `to/sub/f.png` |
+| 변경 감지 | 소스 파일 SHA-256 해시가 이전과 동일하면 복사 스킵 |
+
+### clean 동작
+
+`dotori clean` 실행 시 `.dotori-cache/copy-manifest.json`에 기록된 복사 파일만 개별 삭제합니다 (대상 디렉토리 전체를 삭제하지 않음).
+
+### 조건 블록과 조합
+
+```
+[windows] {
+    copy {
+        from "dlls/windows/*.dll"  to "bin/"
+    }
+}
+
+[release] {
+    copy {
+        from "data/release/**/*"  to "dist/data/"
+    }
+}
+```
+
+### 환경변수 보간
+
+`from`과 `to` 값 모두 `${VAR}` 보간이 적용됩니다.
+
+```
+copy {
+    from "${ASSETS_DIR}/**/*"  to "bin/assets/"
+}
+```
+
+---
+
 ## option 블록 — 선택적 빌드 기능
 
 프로젝트에 이름 있는 옵션을 선언합니다. CLI 플래그(`--옵션명` / `--no-옵션명`)로 켜고 끌 수 있습니다.

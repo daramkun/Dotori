@@ -376,6 +376,9 @@ internal static class BuildCommandFactory
         // Copy artifacts to user-specified output directories
         planner.CopyArtifacts(linkJob.OutputFile);
 
+        // Copy files declared in copy { } blocks (incremental)
+        planner.CopyCopyItems(checker);
+
         // post-build scripts
         if (model.PostBuildCommands.Count > 0)
         {
