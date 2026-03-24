@@ -23,6 +23,7 @@ public static partial class ToolchainDetector
                 LinkerPath   = pathClang,
                 TargetTriple = triple,
                 AppleSdk     = sdkPath,
+                Assembler    = DetectAssemblers(),
             };
         }
 
@@ -47,6 +48,7 @@ public static partial class ToolchainDetector
             LinkerPath   = clang,
             TargetTriple = triple,
             AppleSdk     = sdkPath,
+            Assembler    = DetectAssemblers(),
         };
     }
 

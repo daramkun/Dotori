@@ -24,6 +24,7 @@ public static partial class ToolchainDetector
             CompilerPath = emcc,
             LinkerPath   = emcc,
             TargetTriple = "wasm32-unknown-emscripten",
+            Assembler    = DetectAssemblers(),
         };
     }
 
@@ -38,6 +39,7 @@ public static partial class ToolchainDetector
             CompilerPath = clang,
             LinkerPath   = clang,
             TargetTriple = "wasm32-unknown-unknown",
+            Assembler    = DetectAssemblers(),
         };
     }
 }

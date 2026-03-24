@@ -236,6 +236,9 @@ public static class DotoriFormatter
             case OptionBlock b:
                 FormatOptionBlock(sb, b, indent);
                 break;
+            case AssemblerBlock b:
+                FormatAssemblerBlock(sb, b, indent);
+                break;
         }
     }
 
@@ -402,6 +405,37 @@ public static class DotoriFormatter
             }
             sb.AppendLine($"{I(indent + 1)}}}");
         }
+        sb.AppendLine($"{I(indent)}}}");
+    }
+
+    // ─── assembler block ────────────────────────────────────────────────────
+
+    private static void FormatAssemblerBlock(StringBuilder sb, AssemblerBlock block, int indent)
+    {
+        sb.AppendLine($"{I(indent)}assembler {{");
+        if (block.Tool != AssemblerTool.Auto)
+        {
+            var toolName = block.Tool switch
+            {
+                AssemblerTool.Nasm => "nasm",
+                AssemblerTool.Yasm => "yasm",
+                AssemblerTool.Gas  => "gas",
+                AssemblerTool.Masm => "masm",
+                _                  => "auto",
+            };
+            sb.AppendLine($"{I(indent + 1)}tool = {toolName}");
+        }
+        if (block.Format is not null)
+            sb.AppendLine($"{I(indent + 1)}format = {QuoteString(block.Format)}");
+        foreach (var item in block.Items)
+        {
+            string keyword = item.IsInclude ? "include" : "exclude";
+            sb.AppendLine($"{I(indent + 1)}{keyword} {QuoteString(item.Glob)}");
+        }
+        if (block.Flags.Count > 0)
+            FormatStringValuesBlock(sb, "flags", block.Flags, indent + 1);
+        if (block.Defines.Count > 0)
+            FormatStringValuesBlock(sb, "defines", block.Defines, indent + 1);
         sb.AppendLine($"{I(indent)}}}");
     }
 

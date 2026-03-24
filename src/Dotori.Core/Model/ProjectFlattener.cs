@@ -239,6 +239,16 @@ public static class ProjectFlattener
                         }
                     }
                     break;
+
+                case AssemblerBlock b:
+                    model.Assembler ??= new AssemblerConfig();
+                    if (b.Tool   != AssemblerTool.Auto) model.Assembler.Tool   = b.Tool;
+                    if (b.Format != null)               model.Assembler.Format = EnvExpander.Expand(b.Format);
+                    foreach (var s in b.Items)
+                        model.Assembler.Items.Add(new SourceItem(s.IsInclude, EnvExpander.Expand(s.Glob)));
+                    model.Assembler.Flags.AddRange(b.Flags.Select(EnvExpander.Expand));
+                    model.Assembler.Defines.AddRange(b.Defines.Select(EnvExpander.Expand));
+                    break;
             }
         }
     }

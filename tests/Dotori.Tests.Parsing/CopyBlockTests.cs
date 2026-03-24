@@ -64,16 +64,15 @@ public sealed class CopyBlockParserTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ParseException))]
     public void CopyBlock_MissingTo_ThrowsParseException()
     {
-        Parse("""
+        Assert.ThrowsExactly<ParseException>(() => Parse("""
             project Foo {
                 copy {
                     from "assets/**/*"
                 }
             }
-            """);
+            """));
     }
 
     // ─── Formatter round-trip ─────────────────────────────────────────────────

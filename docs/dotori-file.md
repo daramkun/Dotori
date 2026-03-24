@@ -410,6 +410,95 @@ copy {
 
 ---
 
+## assembler 블록 — 외부 어셈블러
+
+`.asm` / `.s` / `.S` 파일을 NASM, YASM, GAS, MASM 등 외부 어셈블러로 컴파일합니다.
+출력 `.o`/`.obj` 파일은 일반 C++ 소스와 함께 링커에 전달됩니다.
+
+```
+assembler {
+    tool = nasm          # nasm | yasm | gas | as | masm | auto (기본값)
+    format = "elf64"     # nasm/yasm 전용 출력 포맷 (생략 시 플랫폼에서 자동 감지)
+    include "src/**/*.asm"
+    exclude "src/test/**/*.asm"
+    flags { "-g" }       # 추가 어셈블러 플래그
+    defines { "DEBUG" }  # 전처리기 define (-D / /D)
+}
+```
+
+### tool 값
+
+| 값 | 어셈블러 | 실행파일 |
+|----|---------|---------|
+| `nasm` | NASM | `nasm` |
+| `yasm` | YASM | `yasm` |
+| `gas` / `as` | GNU Assembler | `as` |
+| `masm` | Microsoft Macro Assembler | `ml64.exe` / `ml.exe` |
+| `auto` | 자동 선택 (기본값) | MSVC 툴체인 → masm, 그 외 → gas |
+
+### format 자동 감지
+
+`format`을 생략하면 타겟 플랫폼에서 자동 감지합니다 (NASM/YASM 전용, GAS/MASM은 무시).
+
+| 타겟 | 자동 감지 포맷 |
+|------|--------------|
+| `linux-*`, `android-*` | `elf64` |
+| `windows-*`, `uwp-*` | `win64` |
+| `macos-*` | `macho64` |
+
+GAS와 MASM은 빌드 환경에서 포맷을 자동으로 결정하므로 `-f` 플래그가 필요 없습니다.
+
+### 플랫폼별 분기
+
+`assembler` 블록은 일반 `ProjectItem`이므로 기존 조건 블록 안에서 사용할 수 있습니다.
+해당 조건 블록이 일치하지 않으면 해당 플랫폼에서는 어셈블러가 동작하지 않습니다.
+
+```
+[windows] {
+    assembler {
+        tool = masm
+        include "src/windows/**/*.asm"
+    }
+}
+
+[linux] {
+    assembler {
+        tool = nasm
+        format = "elf64"
+        include "src/linux/**/*.asm"
+    }
+}
+
+[macos] {
+    assembler {
+        tool = nasm
+        format = "macho64"
+        include "src/macos/**/*.asm"
+    }
+}
+
+# wasm, ios 등 — assembler 블록 없음 → 어셈블러 미사용
+```
+
+공통 소스와 플랫폼별 오버라이드를 혼합할 수도 있습니다.
+여러 `assembler` 블록의 `include`/`exclude`/`flags`/`defines`는 누적되고,
+`tool`/`format`은 뒤에 오는 블록이 덮어씁니다.
+
+```
+assembler {
+    include "src/common/**/*.asm"   # 모든 플랫폼 공통 소스
+}
+
+[windows] {
+    assembler {
+        tool = masm                 # tool 오버라이드
+        include "src/win/**/*.asm"  # 추가 소스 누적
+    }
+}
+```
+
+---
+
 ## option 블록 — 선택적 빌드 기능
 
 프로젝트에 이름 있는 옵션을 선언합니다. CLI 플래그(`--옵션명` / `--no-옵션명`)로 켜고 끌 수 있습니다.

@@ -64,6 +64,7 @@ public sealed class FlatProjectModel
     public PchConfig?         Pch         { get; set; }
     public UnityBuildConfig?  UnityBuild  { get; set; }
     public OutputConfig?      Output      { get; set; }
+    public AssemblerConfig?   Assembler   { get; set; }
 
     // Build scripts (accumulated across all applicable condition blocks)
     public List<string> PreBuildCommands  { get; } = new();
@@ -98,4 +99,13 @@ public sealed class OutputConfig
     public string? Libraries { get; set; }
     /// <summary>Target directory for debug symbols (.pdb, .dSYM). Relative to project root.</summary>
     public string? Symbols   { get; set; }
+}
+
+public sealed class AssemblerConfig
+{
+    public AssemblerTool    Tool    { get; set; } = AssemblerTool.Auto;
+    public string?          Format  { get; set; }
+    public List<SourceItem> Items   { get; } = new();
+    public List<string>     Flags   { get; } = new();
+    public List<string>     Defines { get; } = new();
 }

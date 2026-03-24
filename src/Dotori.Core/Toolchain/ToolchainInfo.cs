@@ -22,6 +22,9 @@ public sealed class ToolchainInfo
     /// <summary>Optional: Apple-specific SDK path.</summary>
     public string? AppleSdk             { get; init; }
 
+    /// <summary>Optional: detected external assembler executable paths.</summary>
+    public AssemblerPaths? Assembler    { get; init; }
+
     /// <summary>
     /// True when this is a clang-cl invocation (Kind == Msvc but compiler is clang-cl.exe).
     /// clang-cl requires explicit Windows SDK include paths via -imsvc.
@@ -38,6 +41,16 @@ public sealed class ToolchainInfo
     public bool IsMinGW =>
         Kind == CompilerKind.Clang &&
         TargetTriple.Contains("mingw", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Detected external assembler executable paths.</summary>
+public sealed class AssemblerPaths
+{
+    public string? NasmPath { get; init; }
+    public string? YasmPath { get; init; }
+    public string? GasPath  { get; init; }
+    /// <summary>MASM ml64.exe or ml.exe (Windows only).</summary>
+    public string? MasmPath { get; init; }
 }
 
 /// <summary>MSVC-specific compiler and linker paths.</summary>

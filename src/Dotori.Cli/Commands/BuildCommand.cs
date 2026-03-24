@@ -325,7 +325,17 @@ internal static class BuildCommandFactory
             if (rcCode != 0) return rcCode;
         }
 
-        if (compileJobs.Count == 0 && moduleJobs.Count == 0 && rcJobs.Count == 0)
+        // External assembler jobs (NASM/YASM/GAS/MASM), runs before link
+        var asmJobs = planner.PlanAssemblerJobs();
+        if (asmJobs.Count > 0)
+        {
+            var asmPath = planner.GetAssemblerPath()!;
+            var asmResults = await executor.RunCompileJobsAsync(asmPath, asmJobs, ct);
+            int asmCode = PrintResults(asmResults);
+            if (asmCode != 0) return asmCode;
+        }
+
+        if (compileJobs.Count == 0 && moduleJobs.Count == 0 && rcJobs.Count == 0 && asmJobs.Count == 0)
         {
             Console.WriteLine($"  {model.Name}: up to date");
             return 0;
@@ -354,6 +364,7 @@ internal static class BuildCommandFactory
         var objFiles = compileJobs.Select(j => j.OutputFile)
             .Concat(modulePcmFiles)
             .Concat(rcJobs.Select(j => j.OutputFile))   // .res files → linker
+            .Concat(asmJobs.Select(j => j.OutputFile))  // assembler .o/.obj → linker
             .Concat(isStaticLib ? Enumerable.Empty<string>() : depLibs)
             .ToList();
         var linkJob  = planner.PlanLinkJob(objFiles);

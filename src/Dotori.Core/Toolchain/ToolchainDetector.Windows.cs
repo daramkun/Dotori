@@ -50,6 +50,7 @@ public static partial class ToolchainDetector
                 LinkerPath   = prefixedClang,
                 TargetTriple = triple,
                 SysRoot      = sysroot,
+                Assembler    = DetectAssemblers(),
             };
         }
 
@@ -67,6 +68,7 @@ public static partial class ToolchainDetector
             LinkerPath   = clang,
             TargetTriple = triple,
             SysRoot      = mingwSysroot,
+            Assembler    = DetectAssemblers(),
         };
     }
 
@@ -122,6 +124,11 @@ public static partial class ToolchainDetector
 
         var linkExe = Path.Combine(vcToolsDir, "bin", $"Host{HostArch}", arch, "link.exe");
 
+        // MASM: ml64.exe (x64) or ml.exe (x86) lives in the same bin directory as cl.exe
+        var masmExe = arch == "x86"
+            ? Path.Combine(vcToolsDir, "bin", $"Host{HostArch}", arch, "ml.exe")
+            : Path.Combine(vcToolsDir, "bin", $"Host{HostArch}", arch, "ml64.exe");
+
         return new ToolchainInfo
         {
             Kind         = CompilerKind.Msvc,
@@ -134,7 +141,8 @@ public static partial class ToolchainDetector
                 "arm64" => "aarch64-pc-windows-msvc",
                 _       => arch,
             },
-            Msvc = TryGetMsvcPaths(vcToolsDir, arch),
+            Msvc         = TryGetMsvcPaths(vcToolsDir, arch),
+            Assembler    = DetectAssemblers(masmPath: File.Exists(masmExe) ? masmExe : null),
         };
     }
 
@@ -192,6 +200,9 @@ public static partial class ToolchainDetector
                 var vcToolsDir = FindVcToolsDir(vswhereResult, arch);
                 if (vcToolsDir is not null)
                 {
+                    var clangClMasmExe = arch == "x86"
+                        ? Path.Combine(vcToolsDir, "bin", $"Host{HostArch}", arch, "ml.exe")
+                        : Path.Combine(vcToolsDir, "bin", $"Host{HostArch}", arch, "ml64.exe");
                     return new ToolchainInfo
                     {
                         Kind         = CompilerKind.Msvc,
@@ -199,6 +210,7 @@ public static partial class ToolchainDetector
                         LinkerPath   = lld ?? clangCl,
                         TargetTriple = triple,
                         Msvc         = TryGetMsvcPaths(vcToolsDir, arch),
+                        Assembler    = DetectAssemblers(masmPath: File.Exists(clangClMasmExe) ? clangClMasmExe : null),
                     };
                 }
             }
@@ -211,6 +223,7 @@ public static partial class ToolchainDetector
             CompilerPath = clang,
             LinkerPath   = lld ?? clang,
             TargetTriple = triple,
+            Assembler    = DetectAssemblers(),
         };
     }
 

@@ -29,6 +29,7 @@ public static partial class ToolchainDetector
             LinkerPath   = clang,
             TargetTriple = triple,
             SysRoot      = Path.Combine(toolchain, "sysroot"),
+            Assembler    = DetectAssemblers(),
         };
     }
 

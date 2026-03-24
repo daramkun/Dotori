@@ -363,6 +363,65 @@ public sealed partial class Parser
         return block;
     }
 
+    // ─── assembler block ────────────────────────────────────────────────────
+
+    private AssemblerBlock ParseAssemblerBlock(SourceLocation loc)
+    {
+        Consume(); // "assembler"
+        Expect(TokenKind.LBrace);
+        var block = new AssemblerBlock { Location = loc };
+        while (true)
+        {
+            SkipComments();
+            if (Current.Kind != TokenKind.Ident) break;
+            var key = Current.Text;
+            switch (key)
+            {
+                case "tool":
+                    Consume();
+                    Expect(TokenKind.Equals);
+                    var toolText = Consume().Text;
+                    block.Tool = toolText switch
+                    {
+                        "nasm" => AssemblerTool.Nasm,
+                        "yasm" => AssemblerTool.Yasm,
+                        "gas"  => AssemblerTool.Gas,
+                        "as"   => AssemblerTool.Gas,
+                        "masm" => AssemblerTool.Masm,
+                        "auto" => AssemblerTool.Auto,
+                        _      => throw new ParseException($"Unknown assembler tool '{toolText}'", Current.Location),
+                    };
+                    break;
+                case "format":
+                    Consume();
+                    Expect(TokenKind.Equals);
+                    block.Format = Expect(TokenKind.String).Text;
+                    break;
+                case "include":
+                case "exclude":
+                {
+                    var isInclude = Consume().Text == "include";
+                    var glob = Expect(TokenKind.String).Text;
+                    block.Items.Add(new SourceItem(isInclude, glob));
+                    break;
+                }
+                case "flags":
+                    Consume();
+                    block.Flags.AddRange(ParseStringList());
+                    break;
+                case "defines":
+                    Consume();
+                    block.Defines.AddRange(ParseStringList());
+                    break;
+                default:
+                    throw new ParseException($"Unknown assembler option '{key}'", Current.Location);
+            }
+        }
+        SkipComments();
+        Expect(TokenKind.RBrace);
+        return block;
+    }
+
     // ─── pre-build / post-build blocks ──────────────────────────────────────
 
     private ProjectItem ParseBuildScriptBlock(SourceLocation loc, bool isPost)

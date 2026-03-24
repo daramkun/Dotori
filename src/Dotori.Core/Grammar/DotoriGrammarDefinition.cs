@@ -33,6 +33,7 @@ public static class DotoriGrammarDefinition
         "authors",
         "exports",
         "emscripten-flags",
+        "assembler",
     ];
 
     /// <summary>프로퍼티 키워드 (= 값 형태)</summary>
@@ -78,6 +79,10 @@ public static class DotoriGrammarDefinition
         "libraries",
         "symbols",
         "default",
+        // assembler block
+        "tool",
+        "format",
+        "flags",
     ];
 
     /// <summary>type = ... 의 열거형 값</summary>
@@ -118,6 +123,20 @@ public static class DotoriGrammarDefinition
         // bool
         "true",
         "false",
+        // assembler tool
+        "nasm",
+        "yasm",
+        "gas",
+        "as",
+        "masm",
+        "auto",
+        // assembler format (common nasm/yasm values)
+        "elf64",
+        "elf32",
+        "win64",
+        "win32",
+        "macho64",
+        "macho32",
     ];
 
     /// <summary>조건 블록 내 플랫폼 atom</summary>

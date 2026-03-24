@@ -106,8 +106,17 @@ public static partial class ToolchainDetector
             SysRoot      = original.SysRoot,
             Msvc         = original.Msvc,
             AppleSdk     = original.AppleSdk,
+            Assembler    = original.Assembler,
         };
     }
+
+    internal static AssemblerPaths DetectAssemblers(string? masmPath = null) => new()
+    {
+        NasmPath = FindInPath("nasm"),
+        YasmPath = FindInPath("yasm"),
+        GasPath  = FindInPath("as"),
+        MasmPath = masmPath,
+    };
 
     private static string HostArch =>
         RuntimeInformation.ProcessArchitecture switch

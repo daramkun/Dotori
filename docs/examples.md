@@ -740,3 +740,98 @@ dotori generate-compile-commands --output ./
     ]
 }
 ```
+
+---
+
+## 예제 15: 외부 어셈블러 사용
+
+### 크로스 플랫폼 SIMD 최적화 루틴
+
+각 플랫폼에 맞는 어셈블러로 최적화된 루틴을 컴파일합니다.
+
+```
+project simd-math {
+    type = static-library
+    std  = c++23
+
+    sources {
+        include "src/**/*.cpp"
+    }
+
+    # Linux: NASM으로 asm 컴파일 (elf64 포맷 자동 감지)
+    [linux] {
+        assembler {
+            tool = nasm
+            include "src/asm/x86_64/**/*.asm"
+            defines { "UNIX_ABI" }
+        }
+    }
+
+    # macOS: NASM으로 asm 컴파일 (macho64 포맷 자동 감지)
+    [macos] {
+        assembler {
+            tool = nasm
+            include "src/asm/x86_64/**/*.asm"
+            defines { "UNIX_ABI" }
+        }
+    }
+
+    # Windows MSVC: MASM 사용 (ml64.exe 자동 감지)
+    [windows] {
+        assembler {
+            tool = masm
+            include "src/asm/x86_64/**/*.asm"
+            defines { "WIN_ABI" }
+        }
+    }
+
+    # wasm32 등 — assembler 블록 없음 → C++ 대체 구현 사용
+}
+```
+
+### GNU Assembler (GAS)로 ARM64 루틴
+
+```
+project arm-crypto {
+    type = static-library
+
+    sources  { include "src/**/*.cpp" }
+
+    [linux.android] {
+        assembler {
+            tool = gas
+            include "src/asm/aarch64/**/*.S"
+            flags { "--defsym" "ANDROID=1" }
+        }
+    }
+
+    [macos] {
+        assembler {
+            tool = gas
+            include "src/asm/aarch64/**/*.S"
+        }
+    }
+}
+```
+
+### 공통 소스 + 플랫폼 오버라이드
+
+```
+project mylib {
+    type = static-library
+
+    # 공통 asm 소스 (플랫폼 독립)
+    assembler {
+        include "src/asm/common/**/*.asm"
+    }
+
+    # Windows에서만 tool 오버라이드 + 추가 소스
+    [windows] {
+        assembler {
+            tool = masm
+            include "src/asm/windows/**/*.asm"
+        }
+    }
+}
+```
+

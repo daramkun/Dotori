@@ -188,6 +188,28 @@ public sealed class ManifestProp(string value) : ProjectItem
     public string Value { get; } = value;
 }
 
+public enum AssemblerTool
+{
+    Auto,
+    Nasm,
+    Yasm,
+    Gas,
+    Masm,
+}
+
+/// <summary>
+/// External assembler block — compiles .asm/.s/.S files with NASM, YASM, GAS, or MASM.
+/// Supports platform-specific configuration via condition blocks.
+/// </summary>
+public sealed class AssemblerBlock : ProjectItem
+{
+    public AssemblerTool Tool { get; set; } = AssemblerTool.Auto;
+    public string? Format { get; set; }
+    public List<SourceItem> Items { get; } = new();
+    public List<string> Flags { get; } = new();
+    public List<string> Defines { get; } = new();
+}
+
 public sealed class DependenciesBlock : ProjectItem
 {
     public List<DependencyItem> Items { get; } = new();
