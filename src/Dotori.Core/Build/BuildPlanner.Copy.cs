@@ -123,7 +123,7 @@ public sealed partial class BuildPlanner
             yield return file;
     }
 
-    internal static Dictionary<string, string> LoadManifest(string manifestPath)
+    public static Dictionary<string, string> LoadManifest(string manifestPath)
     {
         if (!File.Exists(manifestPath))
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

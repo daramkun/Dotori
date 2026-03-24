@@ -11,6 +11,7 @@ internal static class ExportCommandFactory
         var exportCommand = new Command("export", "Export project information");
 
         exportCommand.Add(CreateCompileCommandsSubcommand());
+        exportCommand.Add(ExportGrammarCommandFactory.Create());
 
         return exportCommand;
     }

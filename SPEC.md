@@ -1474,6 +1474,14 @@ dotori lsp --log-file /tmp/dotori.log   # 디버그 로그 출력
 dotori generate-compile-commands                    # 호스트 기본 타겟
 dotori generate-compile-commands --target linux-x64 # 타겟 명시
 dotori generate-compile-commands --output ./         # 출력 경로 지정
+
+# 에디터 문법 파일 생성 (DSL 변경 시 재실행)
+dotori export grammar --format textmate             # VSCode / JetBrains (.tmLanguage.json)
+dotori export grammar --format vim                  # Vim / Neovim (.vim)
+dotori export grammar --format emacs                # Emacs (.el)
+dotori export grammar --format sublime              # Sublime Text (.sublime-syntax)
+dotori export grammar --format zed                  # Zed / Helix / Neovim nvim-treesitter (highlights.scm)
+dotori export grammar --output <경로>               # 파일로 저장 (기본: stdout)
 ```
 
 ---

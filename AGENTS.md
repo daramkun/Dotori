@@ -21,6 +21,13 @@ LLM 에이전트에 가이드를 제공하는 용도로 사용하는 파일.
    - 새 기능 추가 시 `docs/examples.md`에 예제 추가 고려
    - build.sh 옵션/대상 변경 → `docs/building.md`
    - CLI 명령어/옵션 변경 시 `docs/dotori.1` manpage도 함께 수정
+5. DSL 문법이 변경될 때 (키워드/블록/속성 추가·제거) 에디터 문법 파일도 갱신
+   - `src/Dotori.Core/Grammar/DotoriGrammarDefinition.cs` 키워드 목록 업데이트
+   - 다음 명령으로 build/ 파일 재생성:
+     ```bash
+     dotori export grammar --format textmate --output build/vscode/syntaxes/dotori.tmLanguage.json
+     dotori export grammar --format zed      --output build/zed/languages/dotori/highlights.scm
+     ```
 
 ## 사용 가능한 명령어
 ```bash

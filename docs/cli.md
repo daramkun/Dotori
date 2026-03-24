@@ -319,6 +319,46 @@ dotori lsp --log-file /tmp/dotori.log   # 디버그 로그 출력
 
 ---
 
+## export grammar — 에디터 문법 파일 내보내기
+
+다양한 에디터용 Dotori DSL 구문 강조 파일을 생성합니다.
+`DotoriGrammarDefinition.cs`의 중앙 키워드 정의에서 자동으로 생성되므로, DSL 문법이 변경되면 이 명령을 재실행해 파일을 갱신하면 됩니다.
+
+```bash
+dotori export grammar                                                    # TextMate 형식 (기본, stdout)
+dotori export grammar --format textmate                                  # VSCode / JetBrains
+dotori export grammar --format vim                                       # Vim / Neovim
+dotori export grammar --format emacs                                     # Emacs
+dotori export grammar --format sublime                                   # Sublime Text
+dotori export grammar --format zed                                       # Zed / Helix / Neovim (nvim-treesitter)
+
+dotori export grammar --output <경로>                                    # 파일로 저장 (기본: stdout)
+```
+
+### 지원 형식
+
+| `--format` | 파일 형식 | 대상 에디터 |
+|------------|----------|------------|
+| `textmate` (기본) | `.tmLanguage.json` | VSCode, JetBrains/IntelliJ, Sublime Text, TextMate, Atom |
+| `vim` | `.vim` | Vim, Neovim |
+| `emacs` | `.el` | Emacs |
+| `sublime` | `.sublime-syntax` | Sublime Text 3+ |
+| `zed` | `highlights.scm` | Zed, Helix, Neovim (nvim-treesitter) |
+
+> **Zed/Tree-sitter 주의**: `highlights.scm`은 별도 Tree-sitter 파서(`grammar.js`)가 빌드되어 있어야 동작합니다.
+
+### 빌드 파일 갱신 예시
+
+```bash
+# VSCode / JetBrains TextMate 문법 갱신
+dotori export grammar --format textmate --output build/vscode/syntaxes/dotori.tmLanguage.json
+
+# Zed highlights.scm 갱신
+dotori export grammar --format zed --output build/zed/languages/dotori/highlights.scm
+```
+
+---
+
 ## generate-compile-commands — compile_commands.json 생성
 
 clangd 등 C++ IntelliSense 도구와 통합하기 위한 `compile_commands.json`을 생성합니다.
