@@ -5,7 +5,7 @@ LLM 에이전트에 가이드를 제공하는 용도로 사용하는 파일.
 @SPEC.md 파일을 참고하여 작업
 
 ## 작업 가이드
-1. 각 작업에 대해서 각각 git 커밋 생성 
+1. 각 작업에 대해서 각각 git 커밋 생성
    - 제목에는 작업 이름, 내용에는 해당 커밋의 작업 내역에 대한 설명 요약
    - 자잘한 수정에 대해서는 모아서 커밋 생성
 2. 각 기능에 대해서 테스트 추가
@@ -44,5 +44,3 @@ $ dotnet test
 # (최초 프로젝트 세팅 시 `dotnet tool install csharpier` 명령 먼저 실행 필요)
 $ dotnet csharpier format .
 ```
-
-@.claude/claude-code-agent-workflow-principles-boris-cherny-claude.md
