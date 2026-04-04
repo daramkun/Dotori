@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Dotori.Core;
 
 namespace Dotori.Core.Toolchain;
@@ -30,7 +31,12 @@ public static partial class ToolchainDetector
 
     private static ToolchainInfo? DetectWasmBare()
     {
-        var clang = FindInPath("clang++") ?? FindBrewLlvm("clang++");
+        // Apple Clang does not ship with the WebAssembly backend.
+        // On macOS, only Homebrew LLVM is a valid clang for wasm32-bare.
+        // On other platforms, trust the PATH clang.
+        var clang = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+            ? FindBrewLlvm("clang++")
+            : FindInPath("clang++");
         if (clang is null) return null;
 
         return new ToolchainInfo

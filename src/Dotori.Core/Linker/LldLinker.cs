@@ -20,7 +20,15 @@ public static class LldLinker
     {
         var flags = new List<string>();
 
-        flags.Add($"--target={toolchain.TargetTriple}");
+        // Embed Android API level in the triple when set (e.g. aarch64-linux-android21)
+        var triple = toolchain.TargetTriple;
+        if (triple.Contains("android") && model.AndroidApiLevel.HasValue)
+        {
+            var i = triple.Length - 1;
+            while (i >= 0 && char.IsDigit(triple[i])) i--;
+            triple = triple[..(i + 1)] + model.AndroidApiLevel.Value;
+        }
+        flags.Add($"--target={triple}");
 
         if (toolchain.SysRoot is not null)
             flags.Add($"--sysroot=\"{toolchain.SysRoot}\"");

@@ -11,6 +11,23 @@ namespace Dotori.Core.Build;
 public static class ClangDriver
 {
     /// <summary>
+    /// Returns the effective target triple, replacing the API level suffix when
+    /// <paramref name="model"/>.AndroidApiLevel overrides the toolchain default.
+    /// </summary>
+    private static string ResolveTriple(ToolchainInfo toolchain, FlatProjectModel model)
+    {
+        var triple = toolchain.TargetTriple;
+        if (triple.Contains("android") && model.AndroidApiLevel.HasValue)
+        {
+            // Strip trailing digits (default API level) and append the requested one.
+            var i = triple.Length - 1;
+            while (i >= 0 && char.IsDigit(triple[i])) i--;
+            triple = triple[..(i + 1)] + model.AndroidApiLevel.Value;
+        }
+        return triple;
+    }
+
+    /// <summary>
     /// Build the common compiler flags for a flattened project model.
     /// </summary>
     public static IReadOnlyList<string> CompileFlags(
@@ -21,8 +38,8 @@ public static class ClangDriver
     {
         var flags = new List<string>();
 
-        // Target triple
-        flags.Add($"--target={toolchain.TargetTriple}");
+        // Target triple (respects android-api-level override)
+        flags.Add($"--target={ResolveTriple(toolchain, model)}");
 
         // Sysroot
         if (toolchain.SysRoot is not null)
@@ -115,7 +132,7 @@ public static class ClangDriver
     {
         var flags = new List<string>();
 
-        flags.Add($"--target={toolchain.TargetTriple}");
+        flags.Add($"--target={ResolveTriple(toolchain, model)}");
 
         if (toolchain.SysRoot is not null)
             flags.Add($"--sysroot=\"{toolchain.SysRoot}\"");
