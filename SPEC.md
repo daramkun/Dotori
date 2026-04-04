@@ -6,7 +6,7 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 
 ## 구현 현황
 
-**완료**: Phase 1-A~1-H, 1-J~1-M, Phase 2, Phase 4 (Docker/K8s 제외)
+**완료**: Phase 1-A~1-H, 1-J~1-N, Phase 2, Phase 4 (Docker/K8s 제외)
 
 ---
 
@@ -29,15 +29,15 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 
 `option <name>` 블록 선언 (`default`, `defines`, `dependencies`). CLI `--<name>`/`--no-<name>`. 환경변수 `DOTORI_OPTION_<NAME>`. `[<name>]` 조건 블록과 자동 연동.
 
-- [ ] AST `OptionBlock` 추가 (`Ast.cs`)
-- [ ] 파서 `option` 블록 지원 (`Parser.Blocks.cs`)
-- [ ] Formatter `OptionBlock` 포매팅 (`DotoriFormatter.cs`)
-- [ ] `TargetContext.EnabledOptions` + `ActiveAtoms()` 연동
-- [ ] `ProjectFlattener` 옵션 적용 (defines / dependencies)
-- [ ] `BuildContext.ScanOptions()` + `MakeTargetContext()` 환경변수 주입
-- [ ] `BuildCommand` 동적 `--X` / `--no-X` 처리
-- [ ] 단위 테스트 (파서, 플래트너, 환경변수)
-- [ ] `docs/dotori-file.md`, `docs/cli.md` 업데이트
+- [x] AST `OptionBlock` 추가 (`Ast.cs`)
+- [x] 파서 `option` 블록 지원 (`Parser.Blocks.cs`)
+- [x] Formatter `OptionBlock` 포매팅 (`DotoriFormatter.cs`)
+- [x] `TargetContext.EnabledOptions` + `ActiveAtoms()` 연동
+- [x] `ProjectFlattener` 옵션 적용 (defines / dependencies)
+- [x] `BuildContext.ScanOptions()` + `MakeTargetContext()` 환경변수 주입
+- [x] `BuildCommand` 동적 `--X` / `--no-X` 처리
+- [x] 단위 테스트 (파서, 플래트너, 환경변수)
+- [x] `docs/dotori-file.md`, `docs/cli.md` 업데이트
 
 ---
 
