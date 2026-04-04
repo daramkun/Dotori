@@ -148,8 +148,11 @@ public static class ClangDriver
         if (model.Type == ProjectType.SharedLibrary)
             flags.Add("-shared");
 
+        // wasm32-bare has no OS stdlib — skip all runtime/stdlib link flags
+        bool isWasmBare = toolchain.TargetTriple == "wasm32-unknown-unknown";
+
         // Runtime static link
-        if (model.RuntimeLink == RuntimeLink.Static)
+        if (!isWasmBare && model.RuntimeLink == RuntimeLink.Static)
         {
             if (model.Stdlib == StdlibType.LibCxx)
             {
@@ -183,7 +186,7 @@ public static class ClangDriver
             flags.Add($"-mmacosx-version-min={model.MacosMin}");
 
         // WASM bare linker flags
-        if (toolchain.TargetTriple == "wasm32-unknown-unknown")
+        if (isWasmBare)
         {
             flags.Add("-Wl,--no-entry");
             flags.Add("-Wl,--export-all");

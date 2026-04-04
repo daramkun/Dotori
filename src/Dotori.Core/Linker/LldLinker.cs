@@ -44,8 +44,11 @@ public static class LldLinker
         if (model.Type == ProjectType.SharedLibrary)
             flags.Add("-shared");
 
+        // wasm32-bare has no OS stdlib — skip all runtime/stdlib link flags
+        bool isWasmBare = toolchain.TargetTriple == "wasm32-unknown-unknown";
+
         // Runtime static link
-        if (model.RuntimeLink == RuntimeLink.Static)
+        if (!isWasmBare && model.RuntimeLink == RuntimeLink.Static)
         {
             if (model.Stdlib == StdlibType.LibCxx)
             {
@@ -64,7 +67,7 @@ public static class LldLinker
         }
 
         // stdlib linkage
-        if (model.Stdlib.HasValue)
+        if (!isWasmBare && model.Stdlib.HasValue)
         {
             flags.Add(model.Stdlib.Value switch
             {
@@ -79,8 +82,9 @@ public static class LldLinker
             flags.Add($"-l{lib}");
 
         // WASM bare linker flags
-        if (toolchain.TargetTriple == "wasm32-unknown-unknown")
+        if (isWasmBare)
         {
+            flags.Add("-nostdlib");
             flags.Add("-Wl,--no-entry");
             flags.Add("-Wl,--export-all");
         }
