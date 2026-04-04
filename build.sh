@@ -18,7 +18,7 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 error()   { echo -e "${RED}[error]${NC} $*" >&2; }
 
 # 빌드 대상 목록 (--only 옵션으로 필터링 가능)
-ALL_TARGETS=(cli build_server worker registry)
+ALL_TARGETS=(cli build_server worker registry grammar)
 
 # 옵션 파싱
 ONLY_TARGETS=()
@@ -54,6 +54,7 @@ if $SHOW_HELP; then
   --help             이 도움말 출력
 
 대상 목록: ${ALL_TARGETS[*]}
+  grammar  — Tree-sitter grammar.js + parser.c 생성 (node, tree-sitter-cli 필요)
 
 예시:
   ./build.sh
@@ -62,6 +63,7 @@ if $SHOW_HELP; then
   ./build.sh --config Debug
   ./build.sh --only cli --install
   ./build.sh --only cli --rid linux-x64 --install
+  ./build.sh --only grammar
 EOF
     exit 0
 fi
@@ -158,6 +160,59 @@ build_registry() {
     dotnet_publish "registry" \
         "$REPO_ROOT/src/Dotori.Registry/Dotori.Registry.csproj" \
         "$BUILD_DIR/registry"
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 5. Grammar (Tree-sitter)
+# ──────────────────────────────────────────────────────────────────────────────
+build_grammar() {
+    local grammar_dir="$REPO_ROOT/grammar/tree-sitter-dotori"
+    local dotori_bin="$BUILD_DIR/cli/dotori"
+
+    # dotori CLI 바이너리 확인
+    if [[ ! -f "$dotori_bin" ]]; then
+        error "[grammar] dotori CLI를 찾을 수 없습니다: $dotori_bin"
+        error "[grammar] 먼저 ./build.sh --only cli 를 실행하세요."
+        return 1
+    fi
+
+    # node / npm 확인
+    if ! command -v node &>/dev/null; then
+        error "[grammar] node를 찾을 수 없습니다. Node.js를 설치하세요."
+        return 1
+    fi
+
+    info "[grammar] grammar.js 생성 중..."
+    "$dotori_bin" export grammar --format tree-sitter \
+        --output "$grammar_dir/grammar.js"
+
+    info "[grammar] highlights.scm 생성 중..."
+    "$dotori_bin" export grammar --format zed \
+        --output "$grammar_dir/queries/highlights.scm"
+
+    # tree-sitter-cli 설치
+    if [[ ! -f "$grammar_dir/node_modules/.bin/tree-sitter" ]]; then
+        info "[grammar] npm install (tree-sitter-cli)..."
+        npm install --prefix "$grammar_dir" --silent
+    fi
+
+    info "[grammar] tree-sitter generate..."
+    "$grammar_dir/node_modules/.bin/tree-sitter" generate \
+        --build-path "$grammar_dir"
+
+    # WASM 빌드 (Zed 확장용, emcc 필요)
+    if command -v emcc &>/dev/null; then
+        local wasm_out="$BUILD_DIR/zed/grammars/dotori"
+        info "[grammar] tree-sitter build --wasm → $wasm_out/dotori.wasm"
+        mkdir -p "$wasm_out"
+        (cd "$grammar_dir" && node_modules/.bin/tree-sitter build --wasm \
+            --output "$wasm_out/dotori.wasm")
+        success "[grammar] WASM 빌드 완료 → $wasm_out/dotori.wasm"
+    else
+        warn "[grammar] emcc 없음 — WASM 빌드 건너뜀 (Zed WASM 확장 불가)"
+    fi
+
+    success "[grammar] 완료 → $grammar_dir/src/parser.c"
 }
 
 # ──────────────────────────────────────────────────────────────────────────────

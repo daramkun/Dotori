@@ -9,11 +9,12 @@ internal static class ExportGrammarCommandFactory
         StringComparer.OrdinalIgnoreCase
     )
     {
-        ["textmate"] = new TextMateGrammarGenerator(),
-        ["vim"]      = new VimSyntaxGenerator(),
-        ["emacs"]    = new EmacsGenerator(),
-        ["sublime"]  = new SublimeSyntaxGenerator(),
-        ["zed"]      = new ZedHighlightGenerator(),
+        ["textmate"]    = new TextMateGrammarGenerator(),
+        ["vim"]         = new VimSyntaxGenerator(),
+        ["emacs"]       = new EmacsGenerator(),
+        ["sublime"]     = new SublimeSyntaxGenerator(),
+        ["zed"]         = new ZedHighlightGenerator(),
+        ["tree-sitter"] = new TreeSitterGrammarGenerator(),
     };
 
     public static Command Create()
@@ -22,7 +23,7 @@ internal static class ExportGrammarCommandFactory
 
         var formatOption = new Option<string>("--format")
         {
-            Description  = "Output format: textmate (default), vim, emacs, sublime, zed",
+            Description  = "Output format: textmate (default), vim, emacs, sublime, zed, tree-sitter",
             DefaultValueFactory = _ => "textmate",
         };
         var outputOption = new Option<string?>("--output")

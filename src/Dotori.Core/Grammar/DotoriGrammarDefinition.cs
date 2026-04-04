@@ -171,4 +171,41 @@ public static class DotoriGrammarDefinition
         "emscripten",
         "bare",
     ];
+
+    /// <summary>project 블록 내에서 `key = value` 형태로 사용되는 프로퍼티 키워드 (Tree-sitter property_stmt 용)</summary>
+    public static readonly string[] ProjectPropertyKeywords =
+    [
+        "type",
+        "std",
+        "description",
+        "optimize",
+        "debug-info",
+        "runtime-link",
+        "libc",
+        "stdlib",
+        "lto",
+        "warnings",
+        "warnings-as-errors",
+        "android-api-level",
+        "macos-min",
+        "ios-min",
+        "tvos-min",
+        "watchos-min",
+        "manifest",
+    ];
+
+    /// <summary>`{ STRING* }` 형태의 단순 문자열 목록 블록 키워드 (Tree-sitter string_list_block 용)</summary>
+    public static readonly string[] StringListBlockKeywords =
+    [
+        "defines",
+        "links",
+        "frameworks",
+        "framework-paths",
+        "compile-flags",
+        "link-flags",
+        "resources",
+        "pre-build",
+        "post-build",
+        "emscripten-flags",
+    ];
 }

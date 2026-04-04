@@ -1,0 +1,22 @@
+{
+  "name": "tree-sitter-dotori",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the Dotori C++ build system DSL (.dotori files)",
+  "main": "src/parser.c",
+  "keywords": [
+    "tree-sitter",
+    "dotori",
+    "parser",
+    "grammar"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "build": "tree-sitter build",
+    "build-wasm": "tree-sitter build --wasm",
+    "test": "tree-sitter test"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.24.0"
+  }
+}

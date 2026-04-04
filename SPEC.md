@@ -6,7 +6,7 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 
 ## 구현 현황
 
-**완료**: Phase 1-A~1-H, 1-J~1-N, Phase 2, Phase 4 (Docker/K8s 제외)
+**완료**: Phase 1-A~1-H, 1-J~1-N, Phase 2, Phase 4 (Docker/K8s 제외), Phase 5
 
 ---
 
@@ -48,7 +48,7 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 
 현재 `dotori export grammar --format zed`는 `highlights.scm`만 생성하며, 실제 Tree-sitter 파서가 없다. `grammar.js`를 작성하면 Zed, Helix, Neovim(nvim-treesitter) 등 모든 Tree-sitter 기반 에디터에서 정확한 구문 분석이 가능해진다.
 
-- [ ] `grammar.js` 작성 (`docs/dotori-file.md` EBNF 기반)
-- [ ] `tree-sitter generate`로 `src/parser.c` 생성 및 커밋
-- [ ] `highlights.scm` 개선 (실제 node type에 맞게 정밀화)
-- [ ] `build.sh`에 플랫폼별 파서 컴파일 단계 추가 (`tree-sitter build`)
+- [x] `grammar.js` 작성 (`docs/dotori-file.md` EBNF 기반) — `dotori export grammar --format tree-sitter`로 생성
+- [x] `tree-sitter generate`로 `src/parser.c` 생성 및 커밋
+- [x] `highlights.scm` 개선 (실제 node type에 맞게 정밀화)
+- [x] `build.sh`에 플랫폼별 파서 컴파일 단계 추가 (`tree-sitter build`)
