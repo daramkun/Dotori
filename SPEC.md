@@ -18,10 +18,7 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 - [ ] `windows-x64` (Clang + lld-link)
 - [ ] `linux-x64` (glibc + libstdc++ + dynamic)
 - [ ] `linux-x64` (musl + static)
-- [ ] `ios-arm64` (macOS에서 크로스)
-- [ ] `android-arm64`
 - [ ] `wasm32-emscripten`
-- [ ] `wasm32-bare`
 
 ---
 
