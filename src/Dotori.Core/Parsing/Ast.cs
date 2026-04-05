@@ -110,6 +110,14 @@ public sealed class ForceCxxProp(bool value) : ProjectItem
 {
     public bool Value { get; } = value;
 }
+public sealed class ObjcArcProp(bool value) : ProjectItem
+{
+    public bool Value { get; } = value;
+}
+public sealed class ForceObjcppProp(bool value) : ProjectItem
+{
+    public bool Value { get; } = value;
+}
 public sealed class EmscriptenFlagsProp(IReadOnlyList<string> flags) : ProjectItem
 {
     public IReadOnlyList<string> Flags { get; } = flags;

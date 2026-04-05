@@ -835,3 +835,92 @@ project mylib {
 }
 ```
 
+---
+
+## Objective-C / Objective-C++ (Apple 플랫폼)
+
+### Objective-C 앱 (ARC 사용)
+
+```
+project MyObjcApp {
+    type = executable
+
+    [macos] {
+        objc-arc = true
+
+        sources {
+            include "src/**/*.m"
+            include "src/**/*.mm"
+        }
+
+        frameworks {
+            "Cocoa"
+            "Foundation"
+        }
+    }
+}
+```
+
+### Objective-C++로 강제 컴파일
+
+`.m` 파일을 Objective-C++ 모드로 컴파일하여 C++ 코드와 혼용할 때:
+
+```
+project MyMixedApp {
+    type = executable
+
+    [macos] {
+        objc-arc      = true
+        objc-as-objcpp = true   # .m 파일도 -x objective-c++ 로 컴파일
+
+        sources {
+            include "src/**/*.cpp"
+            include "src/**/*.m"
+        }
+
+        frameworks {
+            "Foundation"
+        }
+    }
+}
+```
+
+### C++/Objective-C 혼합 라이브러리
+
+```
+project MyBridge {
+    type = static-library
+
+    sources {
+        include "src/**/*.cpp"
+    }
+
+    [macos] {
+        objc-arc = true
+
+        sources {
+            include "src/apple/**/*.mm"
+        }
+
+        frameworks {
+            "Foundation"
+            "AppKit"
+        }
+    }
+
+    [ios] {
+        objc-arc = true
+
+        sources {
+            include "src/apple/**/*.mm"
+        }
+
+        frameworks {
+            "Foundation"
+            "UIKit"
+        }
+    }
+}
+```
+
+

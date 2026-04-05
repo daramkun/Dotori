@@ -66,6 +66,10 @@ public static class AppleLinker
         if (model.WatchosMin is not null && toolchain.TargetTriple.Contains("watchos"))
             flags.Add($"-mwatchos-version-min={model.WatchosMin}");
 
+        // Objective-C runtime — linked automatically when ObjC sources are present
+        if (model.HasObjcSources)
+            flags.Add("-lobjc");
+
         // Link libraries
         foreach (var lib in model.Links)
             flags.Add($"-l{lib}");

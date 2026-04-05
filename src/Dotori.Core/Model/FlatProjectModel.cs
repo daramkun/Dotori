@@ -32,6 +32,13 @@ public sealed class FlatProjectModel
     public string?       TvosMin      { get; set; }
     public string?       WatchosMin   { get; set; }
     public bool          ForceCxx     { get; set; } = false;
+    public bool          ObjcArc      { get; set; } = false;
+    public bool          ForceObjcpp  { get; set; } = false;
+    /// <summary>
+    /// Set by BuildPlanner when .m or .mm source files are present.
+    /// Used by AppleLinker to automatically link -lobjc.
+    /// </summary>
+    public bool          HasObjcSources { get; set; } = false;
     public List<string>  EmscriptenFlags { get; } = new();
 
     // Accumulated lists (merged across all applicable condition blocks)

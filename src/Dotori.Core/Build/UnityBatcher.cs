@@ -10,6 +10,10 @@ public static class UnityBatcher
     private static readonly HashSet<string> ModuleExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".cppm", ".ixx" };
 
+    // Objective-C/C++ files must not be batched with C++ files
+    private static readonly HashSet<string> ObjcExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".m", ".mm" };
+
     /// <summary>
     /// Split source files into unity batches.
     /// </summary>
@@ -65,6 +69,11 @@ public static class UnityBatcher
         // Also exclude module extensions by extension
         foreach (var src in sources)
             if (ModuleExtensions.Contains(Path.GetExtension(src)))
+                excluded.Add(src);
+
+        // Exclude Objective-C/C++ files from unity batches
+        foreach (var src in sources)
+            if (ObjcExtensions.Contains(Path.GetExtension(src)))
                 excluded.Add(src);
 
         var nonUnityFiles = sources.Where(s => excluded.Contains(s)).ToList();

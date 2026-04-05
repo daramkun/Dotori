@@ -238,6 +238,33 @@ c-as-cpp = false    # 기본값
 
 ---
 
+## objc-arc — Objective-C ARC 활성화 (Apple 플랫폼)
+
+```
+objc-arc = true
+objc-arc = false    # 기본값
+```
+
+`.m` / `.mm` 파일 컴파일 시 `-fobjc-arc` 플래그를 추가한다.  
+ARC(Automatic Reference Counting)를 사용할 때 설정한다.
+
+- Apple 플랫폼(macOS / iOS / tvOS / watchOS)에서만 의미가 있다.
+- C++ 파일(`.cpp` 등)에는 영향을 주지 않는다.
+
+---
+
+## objc-as-objcpp — Objective-C 소스 파일을 Objective-C++로 컴파일 (Apple 플랫폼)
+
+```
+objc-as-objcpp = true
+objc-as-objcpp = false    # 기본값
+```
+
+`.m` 확장자 파일을 Objective-C++ 모드(`-x objective-c++`)로 컴파일한다.  
+`.mm` 파일은 항상 Objective-C++로 컴파일되므로 이 옵션의 영향을 받지 않는다.
+
+---
+
 ## libc / stdlib — 런타임 라이브러리 선택 (Linux)
 
 ```

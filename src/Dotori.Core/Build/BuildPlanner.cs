@@ -88,6 +88,13 @@ public sealed partial class BuildPlanner
 
     // ─── Source/module glob helpers ───────────────────────────────────────────
 
+    private static bool IsObjcSourceFile(string src)
+    {
+        var ext = Path.GetExtension(src);
+        return ext.Equals(".m",  StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".mm", StringComparison.OrdinalIgnoreCase);
+    }
+
     private IReadOnlyList<string> ExpandSources() =>
         GlobExpander.Expand(
             _model.ProjectDir,
@@ -180,7 +187,11 @@ public sealed partial class BuildPlanner
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
                 var flags = AddModuleImportFlags(src, baseFlags, bmiPaths, _toolchain.Kind);
-                jobs.Add(ClangDriver.MakeCompileJob(src, _cacheDir, flags, cAsCpp: _model.ForceCxx));
+                if (IsObjcSourceFile(src)) _model.HasObjcSources = true;
+                jobs.Add(ClangDriver.MakeCompileJob(src, _cacheDir, flags,
+                    cAsCpp: _model.ForceCxx,
+                    objcArc: _model.ObjcArc,
+                    forceObjcpp: _model.ForceObjcpp));
             }
         }
 

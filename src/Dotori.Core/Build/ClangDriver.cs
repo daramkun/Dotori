@@ -198,21 +198,41 @@ public static class ClangDriver
         return flags;
     }
 
+    private static bool IsObjcSource(string sourceFile) =>
+        sourceFile.EndsWith(".m",  StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsObjcppSource(string sourceFile) =>
+        sourceFile.EndsWith(".mm", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Generate a compile job for a single source file.</summary>
     public static CompileJob MakeCompileJob(
         string sourceFile,
         string objDir,
         IReadOnlyList<string> commonFlags,
         bool isModule = false,
-        bool cAsCpp = false)
+        bool cAsCpp = false,
+        bool objcArc = false,
+        bool forceObjcpp = false)
     {
         var ext     = isModule ? ".pcm" : ".o";
         var objFile = Path.Combine(objDir,
             Path.GetFileNameWithoutExtension(sourceFile) + ext);
 
         var args = new List<string>(commonFlags);
+
         if (cAsCpp && sourceFile.EndsWith(".c", StringComparison.OrdinalIgnoreCase))
             args.Add("-x c++");
+        else if (forceObjcpp && IsObjcSource(sourceFile))
+            args.Add("-x objective-c++");
+        else if (IsObjcppSource(sourceFile))
+            args.Add("-x objective-c++");
+        else if (IsObjcSource(sourceFile))
+            args.Add("-x objective-c");
+
+        if (objcArc && (IsObjcSource(sourceFile) || IsObjcppSource(sourceFile)
+                        || (forceObjcpp && IsObjcSource(sourceFile))))
+            args.Add("-fobjc-arc");
+
         args.Add($"\"{sourceFile}\"");
         if (isModule)
         {

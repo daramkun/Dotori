@@ -115,6 +115,8 @@ public static class ProjectFlattener
                 case TvosMinProp p:        model.TvosMin     = EnvExpander.Expand(p.Value); break;
                 case WatchosMinProp p:     model.WatchosMin  = EnvExpander.Expand(p.Value); break;
                 case ForceCxxProp p:       model.ForceCxx    = p.Value; break;
+                case ObjcArcProp p:        model.ObjcArc     = p.Value; break;
+                case ForceObjcppProp p:    model.ForceObjcpp = p.Value; break;
 
                 case EmscriptenFlagsProp p:
                     model.EmscriptenFlags.AddRange(p.Flags.Select(EnvExpander.Expand));
