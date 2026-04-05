@@ -49,12 +49,18 @@ public static class MsvcLinker
             flags.Add($"\"{lib}.lib\"");
 
         // MSVC SDK lib paths
-        if (toolchain.Msvc is { } msvc && !string.IsNullOrEmpty(msvc.WinSdkDir))
+        if (toolchain.Msvc is { } msvc)
         {
-            var arch   = msvc.Architecture;
-            var sdkLib = Path.Combine(msvc.WinSdkDir, "Lib", msvc.WinSdkVer);
-            flags.Add($"/LIBPATH:\"{Path.Combine(sdkLib, "um",   arch)}\"");
-            flags.Add($"/LIBPATH:\"{Path.Combine(sdkLib, "ucrt", arch)}\"");
+            var arch = msvc.Architecture;
+            // VC runtime libs (libcmt.lib, msvcrt.lib, etc.)
+            flags.Add($"/LIBPATH:\"{Path.Combine(msvc.VcToolsDir, "lib", arch)}\"");
+            // Windows SDK libs
+            if (!string.IsNullOrEmpty(msvc.WinSdkDir))
+            {
+                var sdkLib = Path.Combine(msvc.WinSdkDir, "Lib", msvc.WinSdkVer);
+                flags.Add($"/LIBPATH:\"{Path.Combine(sdkLib, "um",   arch)}\"");
+                flags.Add($"/LIBPATH:\"{Path.Combine(sdkLib, "ucrt", arch)}\"");
+            }
         }
 
         // User-defined link flags (appended after dotori-generated flags)

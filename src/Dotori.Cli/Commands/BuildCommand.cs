@@ -371,9 +371,11 @@ internal static class BuildCommandFactory
         if (linkJob is null) return 0;
 
         var linkResult = await executor.RunLinkJobAsync(planner.GetLinkerPath(), linkJob, ct);
+        if (!string.IsNullOrWhiteSpace(linkResult.Stdout)) Console.Write(linkResult.Stdout);
         if (!linkResult.Success)
         {
-            Console.Error.WriteLine(linkResult.Stderr);
+            if (!string.IsNullOrWhiteSpace(linkResult.Stderr)) Console.Error.Write(linkResult.Stderr);
+            Console.Error.WriteLine($"Link failed (exit {linkResult.ExitCode})");
             return 1;
         }
 

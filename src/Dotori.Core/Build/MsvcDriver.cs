@@ -71,17 +71,18 @@ public static class MsvcDriver
         foreach (var d in model.Defines)
             flags.Add($"/D{d}");
 
-        // clang-cl: Windows SDK headers must be passed explicitly via -imsvc.
-        // cl.exe resolves them automatically through its built-in install knowledge.
-        if (toolchain.IsClangCl && toolchain.Msvc is { } msvc)
+        // When invoked directly (not from a VS Developer Command Prompt), cl.exe does not
+        // automatically resolve SDK headers. Pass them explicitly via /I (cl.exe) or -imsvc (clang-cl).
+        if (toolchain.Msvc is { } msvc)
         {
-            flags.Add($"-imsvc\"{msvc.VcToolsDir}\\include\"");
+            var incFlag = toolchain.IsClangCl ? "-imsvc" : "/I";
+            flags.Add($"{incFlag}\"{msvc.VcToolsDir}\\include\"");
             if (!string.IsNullOrEmpty(msvc.WinSdkDir))
             {
                 var sdkInc = Path.Combine(msvc.WinSdkDir, "Include", msvc.WinSdkVer);
-                flags.Add($"-imsvc\"{Path.Combine(sdkInc, "ucrt")}\"");
-                flags.Add($"-imsvc\"{Path.Combine(sdkInc, "um")}\"");
-                flags.Add($"-imsvc\"{Path.Combine(sdkInc, "shared")}\"");
+                flags.Add($"{incFlag}\"{Path.Combine(sdkInc, "ucrt")}\"");
+                flags.Add($"{incFlag}\"{Path.Combine(sdkInc, "um")}\"");
+                flags.Add($"{incFlag}\"{Path.Combine(sdkInc, "shared")}\"");
             }
         }
 
@@ -90,7 +91,9 @@ public static class MsvcDriver
             flags.Add($"/I\"{PathUtils.MakeAbsolute(model.ProjectDir, h.Path)}\"");
 
         // Output dir for .obj
-        flags.Add($"/Fo\"{objDir}\\\"");
+        // Note: use \\" (double backslash before closing quote) so Windows command-line
+        // parsing sees it as one literal backslash followed by end-of-quote, not an escaped quote.
+        flags.Add($"/Fo\"{objDir}\\\\\"");
 
         // No logo
         flags.Add("/nologo");

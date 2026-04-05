@@ -14,8 +14,8 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 
 ### Phase 1-I: 플랫폼 검증
 
-- [ ] `windows-x64` (MSVC)
-- [ ] `windows-x64` (Clang + lld-link)
+- [x] `windows-x64` (MSVC)
+- [x] `windows-x64` (Clang + lld-link)
 - [ ] `linux-x64` (glibc + libstdc++ + dynamic)
 - [ ] `linux-x64` (musl + static)
 - [ ] `wasm32-emscripten`
