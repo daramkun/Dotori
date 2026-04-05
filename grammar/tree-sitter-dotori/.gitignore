@@ -1,2 +1,9 @@
 node_modules/
 *.wasm
+
+# 자동 생성 파일 (dotori export grammar + tree-sitter generate로 재생성)
+grammar.js
+tree-sitter.json
+package-lock.json
+queries/
+src/
