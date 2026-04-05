@@ -31,6 +31,7 @@ public sealed class FlatProjectModel
     public string?       IosMin       { get; set; }
     public string?       TvosMin      { get; set; }
     public string?       WatchosMin   { get; set; }
+    public bool          ForceCxx     { get; set; } = false;
     public List<string>  EmscriptenFlags { get; } = new();
 
     // Accumulated lists (merged across all applicable condition blocks)

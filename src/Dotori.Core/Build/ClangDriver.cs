@@ -203,13 +203,17 @@ public static class ClangDriver
         string sourceFile,
         string objDir,
         IReadOnlyList<string> commonFlags,
-        bool isModule = false)
+        bool isModule = false,
+        bool cAsCpp = false)
     {
         var ext     = isModule ? ".pcm" : ".o";
         var objFile = Path.Combine(objDir,
             Path.GetFileNameWithoutExtension(sourceFile) + ext);
 
-        var args = new List<string>(commonFlags) { $"\"{sourceFile}\"" };
+        var args = new List<string>(commonFlags);
+        if (cAsCpp && sourceFile.EndsWith(".c", StringComparison.OrdinalIgnoreCase))
+            args.Add("-x c++");
+        args.Add($"\"{sourceFile}\"");
         if (isModule)
         {
             // Module precompilation

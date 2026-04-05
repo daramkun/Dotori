@@ -223,6 +223,21 @@ warnings-as-errors = false    # 기본값
 
 ---
 
+## c-as-cpp — C 소스 파일을 C++로 컴파일
+
+```
+c-as-cpp = true
+c-as-cpp = false    # 기본값
+```
+
+`.c` 확장자 파일을 C++ 모드로 컴파일한다.
+
+- **Clang / Emscripten**: 해당 파일 앞에 `-x c++` 플래그를 삽입한다.
+- **MSVC**: `/Tp<파일>` 옵션으로 해당 파일을 C++로 강제 컴파일한다.
+- `.cpp`, `.cxx` 등 C++ 확장자 파일에는 영향을 주지 않는다.
+
+---
+
 ## libc / stdlib — 런타임 라이브러리 선택 (Linux)
 
 ```

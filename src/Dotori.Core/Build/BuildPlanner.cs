@@ -160,7 +160,7 @@ public sealed partial class BuildPlanner
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
                 var flags = AddModuleImportFlags(src, baseFlags, bmiPaths, _toolchain.Kind);
-                jobs.Add(MsvcDriver.MakeCompileJob(src, _cacheDir, flags));
+                jobs.Add(MsvcDriver.MakeCompileJob(src, _cacheDir, flags, _model.ForceCxx));
             }
         }
         else if (_toolchain.Kind == CompilerKind.Emscripten)
@@ -169,7 +169,7 @@ public sealed partial class BuildPlanner
             foreach (var src in files)
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
-                jobs.Add(EmscriptenDriver.MakeCompileJob(src, _cacheDir, baseFlags));
+                jobs.Add(EmscriptenDriver.MakeCompileJob(src, _cacheDir, baseFlags, _model.ForceCxx));
             }
         }
         else  // Clang
@@ -180,7 +180,7 @@ public sealed partial class BuildPlanner
             {
                 if (checker is not null && !checker.IsChanged(src)) continue;
                 var flags = AddModuleImportFlags(src, baseFlags, bmiPaths, _toolchain.Kind);
-                jobs.Add(ClangDriver.MakeCompileJob(src, _cacheDir, flags));
+                jobs.Add(ClangDriver.MakeCompileJob(src, _cacheDir, flags, cAsCpp: _model.ForceCxx));
             }
         }
 
@@ -378,17 +378,17 @@ public sealed partial class BuildPlanner
         if (_toolchain.Kind == CompilerKind.Msvc)
         {
             var flags = MsvcDriver.CompileFlags(_model, _toolchain, _config, _cacheDir);
-            return MsvcDriver.MakeCompileJob(sourceFile, _cacheDir, flags);
+            return MsvcDriver.MakeCompileJob(sourceFile, _cacheDir, flags, _model.ForceCxx);
         }
         else if (_toolchain.Kind == CompilerKind.Emscripten)
         {
             var flags = EmscriptenDriver.CompileFlags(_model, _cacheDir);
-            return EmscriptenDriver.MakeCompileJob(sourceFile, _cacheDir, flags);
+            return EmscriptenDriver.MakeCompileJob(sourceFile, _cacheDir, flags, _model.ForceCxx);
         }
         else
         {
             var flags = ClangDriver.CompileFlags(_model, _toolchain, _config, _cacheDir);
-            return ClangDriver.MakeCompileJob(sourceFile, _cacheDir, flags);
+            return ClangDriver.MakeCompileJob(sourceFile, _cacheDir, flags, cAsCpp: _model.ForceCxx);
         }
     }
 

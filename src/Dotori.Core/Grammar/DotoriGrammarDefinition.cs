@@ -55,6 +55,7 @@ public static class DotoriGrammarDefinition
         "ios-min",
         "tvos-min",
         "watchos-min",
+        "c-as-cpp",
         "manifest",
         "header",
         "source",
@@ -191,6 +192,7 @@ public static class DotoriGrammarDefinition
         "ios-min",
         "tvos-min",
         "watchos-min",
+        "c-as-cpp",
         "manifest",
     ];
 

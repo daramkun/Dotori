@@ -62,12 +62,17 @@ public static class EmscriptenDriver
     public static CompileJob MakeCompileJob(
         string sourceFile,
         string objDir,
-        IReadOnlyList<string> commonFlags)
+        IReadOnlyList<string> commonFlags,
+        bool cAsCpp = false)
     {
         var objFile = Path.Combine(objDir,
             Path.GetFileNameWithoutExtension(sourceFile) + ".o");
 
-        var args = new List<string>(commonFlags) { $"\"{sourceFile}\"", $"-o \"{objFile}\"" };
+        var args = new List<string>(commonFlags);
+        if (cAsCpp && sourceFile.EndsWith(".c", StringComparison.OrdinalIgnoreCase))
+            args.Add("-x c++");
+        args.Add($"\"{sourceFile}\"");
+        args.Add($"-o \"{objFile}\"");
 
         return new CompileJob
         {

@@ -536,4 +536,27 @@ public sealed class ProjectFlattenerTests
         Assert.DoesNotContain("-Wl,--as-needed", model.LinkFlags);
         Assert.DoesNotContain("-Wl,--gc-sections", model.LinkFlags);
     }
+
+    [TestMethod]
+    public void Flatten_ForceCxx_True()
+    {
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+                c-as-cpp = true
+            }
+            """, LinuxDebug);
+        Assert.IsTrue(model.ForceCxx);
+    }
+
+    [TestMethod]
+    public void Flatten_ForceCxx_DefaultFalse()
+    {
+        var model = FlattenSource("""
+            project MyApp {
+                type = executable
+            }
+            """, LinuxDebug);
+        Assert.IsFalse(model.ForceCxx);
+    }
 }

@@ -113,12 +113,17 @@ public static class MsvcDriver
     public static CompileJob MakeCompileJob(
         string sourceFile,
         string objDir,
-        IReadOnlyList<string> commonFlags)
+        IReadOnlyList<string> commonFlags,
+        bool cAsCpp = false)
     {
         var objFile = Path.Combine(objDir,
             Path.GetFileNameWithoutExtension(sourceFile) + ".obj");
 
-        var args = new List<string>(commonFlags) { $"\"{sourceFile}\"" };
+        var args = new List<string>(commonFlags);
+        if (cAsCpp && sourceFile.EndsWith(".c", StringComparison.OrdinalIgnoreCase))
+            args.Add($"/Tp\"{sourceFile}\"");
+        else
+            args.Add($"\"{sourceFile}\"");
 
         return new CompileJob
         {

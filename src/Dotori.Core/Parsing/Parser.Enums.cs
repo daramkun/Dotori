@@ -27,6 +27,7 @@ public sealed partial class Parser
             "ios-min"            => new IosMinProp(Expect(TokenKind.String).Text)                              { Location = loc },
             "tvos-min"           => new TvosMinProp(Expect(TokenKind.String).Text)                             { Location = loc },
             "watchos-min"        => new WatchosMinProp(Expect(TokenKind.String).Text)                          { Location = loc },
+            "c-as-cpp"           => new ForceCxxProp(ParseBool())                                              { Location = loc },
             _                    => throw new ParseException($"Unknown property '{key}'", loc),
         };
     }

@@ -386,4 +386,30 @@ public sealed class ParserTests
         var block = cond.Items.OfType<OutputBlock>().Single();
         Assert.AreEqual("dist/", block.Binaries);
     }
+
+    [TestMethod]
+    public void Parser_ForceCxx_True()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                c-as-cpp = true
+            }
+            """, "<test>");
+        var prop = file.Project!.Items.OfType<ForceCxxProp>().Single();
+        Assert.IsTrue(prop.Value);
+    }
+
+    [TestMethod]
+    public void Parser_ForceCxx_False()
+    {
+        var file = DotoriParser.ParseSource("""
+            project MyApp {
+                type = executable
+                c-as-cpp = false
+            }
+            """, "<test>");
+        var prop = file.Project!.Items.OfType<ForceCxxProp>().Single();
+        Assert.IsFalse(prop.Value);
+    }
 }
