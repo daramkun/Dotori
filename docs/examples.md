@@ -837,6 +837,29 @@ project mylib {
 
 ---
 
+## C 소스를 C++로 컴파일 (c-as-cpp)
+
+레거시 C 코드를 C++ 프로젝트에 통합하거나, C 파일 전체를 C++로 컴파일해야 할 때 사용한다.
+
+```
+project {
+    name    = "my-app"
+    type    = executable
+    std     = c++23
+
+    c-as-cpp = true    # .c 파일을 C++ 모드로 컴파일
+
+    sources {
+        include "src/**/*.cpp"
+        include "vendor/legacy/**/*.c"    # C 라이브러리 소스도 C++로 컴파일
+    }
+}
+```
+
+C++ 확장자 파일(`.cpp`, `.cc`, `.cxx`)은 `c-as-cpp` 설정과 무관하게 항상 C++로 컴파일된다.
+
+---
+
 ## Objective-C / Objective-C++ (Apple 플랫폼)
 
 ### Objective-C 앱 (ARC 사용)

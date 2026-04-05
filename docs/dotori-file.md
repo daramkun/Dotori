@@ -56,6 +56,8 @@ description = "My awesome application"
 sources {
     include "src/**/*.cpp"
     include "src/**/*.cc"
+    include "src/**/*.m"               # Objective-C (Apple 플랫폼)
+    include "src/**/*.mm"              # Objective-C++ (Apple 플랫폼)
     exclude "src/platform/**/*.cpp"    # 특정 경로 제외
 }
 ```
