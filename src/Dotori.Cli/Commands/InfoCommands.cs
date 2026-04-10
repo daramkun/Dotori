@@ -15,6 +15,7 @@ internal static class InfoCommandFactory
         infoCommand.Add(CreateCheckCommand());
         infoCommand.Add(CreateTargetsCommand());
         infoCommand.Add(CreateToolchainCommand());
+        infoCommand.Add(CreateFeaturesCommand());
 
         return infoCommand;
     }
@@ -190,6 +191,75 @@ internal static class InfoCommandFactory
             {
                 Console.WriteLine($"VCTools:  {msvc.VcToolsDir}");
                 Console.WriteLine($"WinSDK:   {msvc.WinSdkDir} ({msvc.WinSdkVer})");
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command CreateFeaturesCommand()
+    {
+        var command = new Command("features", "Probe C++ feature support for the detected toolchain");
+
+        var targetOption   = new Option<string?>("--target")   { Description = "Target to inspect (default: host)" };
+        var compilerOption = new Option<string?>("--compiler") { Description = "Preferred compiler (msvc, clang, or path)" };
+        var filterOption   = new Option<string?>("--filter")   { Description = "Show only features whose ID contains this substring" };
+        command.Add(targetOption);
+        command.Add(compilerOption);
+        command.Add(filterOption);
+
+        command.SetAction((parseResult) =>
+        {
+            var targetArg   = parseResult.GetValue(targetOption);
+            var compilerArg = parseResult.GetValue(compilerOption);
+            var filterArg   = parseResult.GetValue(filterOption);
+
+            var targetId = BuildContext.ResolveTargetId(targetArg);
+            var tc       = ToolchainDetector.Detect(targetId, compilerArg);
+
+            if (tc is null)
+            {
+                Console.Error.WriteLine($"No toolchain detected for target '{targetId}'.");
+                return 1;
+            }
+
+            Console.WriteLine($"Probing C++ features for: {tc.CompilerPath}  [{targetId}]");
+            Console.WriteLine();
+
+            var features = CxxFeatureProber.KnownFeatures
+                .Where(f => filterArg is null ||
+                            f.Id.Contains(filterArg, StringComparison.OrdinalIgnoreCase) ||
+                            f.Description.Contains(filterArg, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (features.Count == 0)
+            {
+                Console.Error.WriteLine("No matching features.");
+                return 1;
+            }
+
+            int labelWidth = features.Max(f => f.Description.Length) + 2;
+
+            foreach (var feature in features)
+            {
+                Console.Write($"  {feature.Description.PadRight(labelWidth)}");
+                Console.Write("... ");
+
+                bool ok = CxxFeatureProber.Probe(tc, feature);
+
+                if (ok)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("supported");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("not supported");
+                }
+                Console.ResetColor();
             }
 
             return 0;
