@@ -29,6 +29,35 @@ public static class CxxFeatureProber
     public static readonly IReadOnlyList<CxxFeature> KnownFeatures =
     [
         // ── Standard version probes ──────────────────────────────────────────
+        new("cxx11",
+            "C++11",
+            "-std=c++11", "/std:c++11",
+            """
+            #include <memory>
+            #include <functional>
+            #include <vector>
+            int main() {
+                auto p = std::make_shared<int>(42);
+                std::vector<int> v = {1, 2, 3};
+                auto fn = [](int x) { return x * 2; };
+                (void)p; (void)v; (void)fn;
+            }
+            """),
+
+        new("cxx14",
+            "C++14",
+            "-std=c++14", "/std:c++14",
+            """
+            #include <memory>
+            template<typename T>
+            constexpr T square(T x) { return x * x; }
+            int main() {
+                auto p = std::make_unique<int>(42);
+                constexpr auto s = square(7);
+                (void)p; (void)s;
+            }
+            """),
+
         new("cxx17",
             "C++17",
             "-std=c++17", "/std:c++17",
@@ -77,6 +106,87 @@ public static class CxxFeatureProber
             #include <type_traits>
             static_assert(__cplusplus >= 202400L);
             int main() {}
+            """),
+
+        // ── C++17 language features ───────────────────────────────────────────
+        new("structured_bindings",
+            "Structured bindings (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            #include <utility>
+            int main() {
+                auto p = std::pair{1, 2.0};
+                auto [a, b] = p;
+                return (int)(a + b) - 3;
+            }
+            """),
+
+        new("if_constexpr",
+            "if constexpr (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            #include <type_traits>
+            template<typename T>
+            auto negate_if_signed(T t) {
+                if constexpr (std::is_signed_v<T>) return -t;
+                else return t;
+            }
+            int main() { return negate_if_signed(-1) - 1; }
+            """),
+
+        new("fold_expressions",
+            "Fold expressions (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            template<typename... Ts>
+            auto sum(Ts... ts) { return (ts + ...); }
+            int main() { return sum(1, 2, 3) - 6; }
+            """),
+
+        new("filesystem",
+            "std::filesystem (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            #include <filesystem>
+            int main() {
+                auto p = std::filesystem::current_path();
+                (void)p;
+            }
+            """),
+
+        new("any",
+            "std::any (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            #include <any>
+            int main() {
+                std::any a = 42;
+                return std::any_cast<int>(a) - 42;
+            }
+            """),
+
+        new("string_view",
+            "std::string_view (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            #include <string_view>
+            constexpr std::string_view hello = "hello";
+            static_assert(hello.size() == 5);
+            int main() {}
+            """),
+
+        new("parallel_algorithms",
+            "Parallel algorithms / execution policies (C++17)",
+            "-std=c++17", "/std:c++17",
+            """
+            #include <algorithm>
+            #include <execution>
+            #include <vector>
+            int main() {
+                std::vector<int> v = {3,1,4,1,5};
+                std::sort(std::execution::par, v.begin(), v.end());
+                (void)v;
+            }
             """),
 
         // ── C++20 language features ───────────────────────────────────────────
@@ -168,6 +278,28 @@ public static class CxxFeatureProber
             }
             """),
 
+        new("using_enum",
+            "using enum (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            enum class Color { Red, Green, Blue };
+            int main() {
+                using enum Color;
+                auto c = Red;
+                return c == Color::Red ? 0 : 1;
+            }
+            """),
+
+        new("char8_t",
+            "char8_t (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            int main() {
+                char8_t c = u8'a';
+                return c == u8'a' ? 0 : 1;
+            }
+            """),
+
         // ── C++20 library features ────────────────────────────────────────────
         new("format",
             "std::format (C++20)",
@@ -203,6 +335,89 @@ public static class CxxFeatureProber
             }
             """),
 
+        new("bit_cast",
+            "std::bit_cast (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <bit>
+            #include <cstdint>
+            int main() {
+                float f = 0.0f;
+                auto i = std::bit_cast<std::uint32_t>(f);
+                return i == 0 ? 0 : 1;
+            }
+            """),
+
+        new("source_location",
+            "std::source_location (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <source_location>
+            int main() {
+                auto loc = std::source_location::current();
+                (void)loc;
+            }
+            """),
+
+        new("is_constant_evaluated",
+            "std::is_constant_evaluated (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <type_traits>
+            constexpr int f() {
+                if (std::is_constant_evaluated()) return 1;
+                return 0;
+            }
+            static_assert(f() == 1);
+            int main() {}
+            """),
+
+        new("semaphore",
+            "std::semaphore (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <semaphore>
+            int main() {
+                std::counting_semaphore<10> sem(1);
+                sem.acquire();
+                sem.release();
+            }
+            """),
+
+        new("latch",
+            "std::latch (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <latch>
+            int main() {
+                std::latch l(1);
+                l.count_down();
+            }
+            """),
+
+        new("barrier",
+            "std::barrier (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <barrier>
+            int main() {
+                std::barrier b(1);
+                b.arrive_and_wait();
+            }
+            """),
+
+        new("atomic_wait",
+            "std::atomic::wait/notify (C++20)",
+            "-std=c++20", "/std:c++20",
+            """
+            #include <atomic>
+            int main() {
+                std::atomic<int> a(0);
+                a.store(1);
+                a.notify_one();
+            }
+            """),
+
         // ── C++23 library features ────────────────────────────────────────────
         new("expected",
             "std::expected (C++23)",
@@ -234,6 +449,219 @@ public static class CxxFeatureProber
                 m[1] = 2;
                 return m[1] - 2;
             }
+            """),
+
+        new("flat_set",
+            "std::flat_set (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <flat_set>
+            int main() {
+                std::flat_set<int> s = {3,1,2};
+                return *s.begin() - 1;
+            }
+            """),
+
+        new("mdspan",
+            "std::mdspan (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <mdspan>
+            int main() {
+                int data[6] = {};
+                auto m = std::mdspan(data, 2, 3);
+                (void)m;
+            }
+            """),
+
+        new("stacktrace",
+            "std::stacktrace (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <stacktrace>
+            int main() {
+                auto st = std::stacktrace::current();
+                (void)st;
+            }
+            """),
+
+        new("generator",
+            "std::generator (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <generator>
+            std::generator<int> iota(int n) {
+                for (int i = 0; i < n; ++i) co_yield i;
+            }
+            int main() {
+                for (auto v : iota(3)) (void)v;
+            }
+            """),
+
+        new("views_zip",
+            "std::views::zip (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <ranges>
+            #include <vector>
+            int main() {
+                std::vector<int> a = {1,2,3};
+                std::vector<int> b = {4,5,6};
+                auto z = std::views::zip(a, b);
+                (void)z;
+            }
+            """),
+
+        new("ranges_fold",
+            "std::ranges::fold_left (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <algorithm>
+            #include <vector>
+            #include <functional>
+            int main() {
+                std::vector<int> v = {1,2,3,4,5};
+                auto s = std::ranges::fold_left(v, 0, std::plus<>{});
+                return s - 15;
+            }
+            """),
+
+        new("if_consteval",
+            "if consteval (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            constexpr int f(int x) {
+                if consteval { return x * 2; }
+                return x;
+            }
+            static_assert(f(3) == 6);
+            int main() {}
+            """),
+
+        new("deducing_this",
+            "Deducing this / explicit object parameter (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            struct Counter {
+                int value = 0;
+                Counter& increment(this Counter& self) { ++self.value; return self; }
+            };
+            int main() {
+                Counter c;
+                c.increment().increment();
+                return c.value - 2;
+            }
+            """),
+
+        new("multidim_subscript",
+            "Multidimensional subscript operator (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            struct Grid {
+                int data[3][3] = {};
+                int& operator[](int i, int j) { return data[i][j]; }
+            };
+            int main() {
+                Grid g;
+                g[1,2] = 5;
+                return g[1,2] - 5;
+            }
+            """),
+
+        new("static_call_op",
+            "static operator() (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            struct Mul {
+                static int operator()(int a, int b) { return a * b; }
+            };
+            int main() { return Mul{}(3, 4) - 12; }
+            """),
+
+        new("size_t_literal",
+            "Literal suffix for size_t (C++23)",
+            "-std=c++23", "/std:c++latest",
+            """
+            #include <cstddef>
+            #include <type_traits>
+            int main() {
+                auto sz = 42uz;
+                static_assert(std::is_same_v<decltype(sz), std::size_t>);
+            }
+            """),
+
+        // ── C++26 language features ───────────────────────────────────────────
+        new("pack_indexing",
+            "Pack indexing (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            template<typename... Ts>
+            using First = Ts...[0];
+            int main() { First<int, double> x = 42; (void)x; }
+            """),
+
+        new("embed",
+            "#embed (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            #if !__has_embed(__FILE__)
+            #error embed not supported
+            #endif
+            int main() {}
+            """),
+
+        // ── C++26 library features ────────────────────────────────────────────
+        new("function_ref",
+            "std::function_ref (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            #include <functional>
+            int add(int a, int b) { return a + b; }
+            int main() {
+                std::function_ref<int(int,int)> f = add;
+                return f(1, 2) - 3;
+            }
+            """),
+
+        new("saturation_arithmetic",
+            "Saturation arithmetic (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            #include <numeric>
+            #include <climits>
+            int main() {
+                return std::add_sat(INT_MAX, 1) == INT_MAX ? 0 : 1;
+            }
+            """),
+
+        new("inplace_vector",
+            "std::inplace_vector (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            #include <inplace_vector>
+            int main() {
+                std::inplace_vector<int, 4> v = {1, 2, 3};
+                return v[0] - 1;
+            }
+            """),
+
+        new("simd",
+            "<simd> data-parallel types (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            #include <simd>
+            int main() {
+                std::simd<int> v(0);
+                (void)v;
+            }
+            """),
+
+        new("linalg",
+            "<linalg> linear algebra (C++26)",
+            "-std=c++26", "/std:c++latest",
+            """
+            #include <linalg>
+            int main() {}
             """),
     ];
 
