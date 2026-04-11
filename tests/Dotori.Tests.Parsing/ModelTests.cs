@@ -192,6 +192,14 @@ public sealed class ProjectFlattenerTests
         return ProjectFlattener.Flatten(file.Project!, "<test>", ctx);
     }
 
+    private static FlatProjectModel FlattenWithLocal(
+        string mainSource, string localSource, TargetContext ctx)
+    {
+        var mainFile  = DotoriParser.ParseSource(mainSource,  "<test>");
+        var localFile = DotoriParser.ParseSource(localSource, "<test.local>");
+        return ProjectFlattener.Flatten(mainFile.Project!, "<test>", ctx, localFile.Project);
+    }
+
     private static TargetContext LinuxDebug => new()
     {
         Platform = "linux", Config = "debug", Compiler = "clang", Runtime = "static",
@@ -471,6 +479,111 @@ public sealed class ProjectFlattenerTests
         Assert.Contains("-march=native", model.CompileFlags);
         Assert.Contains("-DDEBUG_EXTRA", model.CompileFlags);
         Assert.HasCount(3, model.CompileFlags);
+    }
+
+    // ─── .dotori.local 로컬 오버라이드 ─────────────────────────────────────
+
+    [TestMethod]
+    public void Flatten_LocalDecl_ScalarOverride()
+    {
+        // 메인: optimize = speed / 로컬: optimize = none → 로컬이 이겨야 함
+        var model = FlattenWithLocal(
+            """
+            project MyApp {
+                type     = executable
+                optimize = speed
+            }
+            """,
+            """
+            project MyApp {
+                optimize = none
+            }
+            """,
+            LinuxDebug);
+
+        Assert.AreEqual(OptimizeLevel.None, model.Optimize);
+    }
+
+    [TestMethod]
+    public void Flatten_LocalDecl_ListAppend()
+    {
+        // 리스트 속성(defines)은 오버라이드가 아닌 누적
+        var model = FlattenWithLocal(
+            """
+            project MyApp {
+                type    = executable
+                defines { "MAIN_DEFINE" }
+            }
+            """,
+            """
+            project MyApp {
+                defines { "LOCAL_DEFINE" }
+            }
+            """,
+            LinuxDebug);
+
+        Assert.Contains("MAIN_DEFINE",  model.Defines);
+        Assert.Contains("LOCAL_DEFINE", model.Defines);
+    }
+
+    [TestMethod]
+    public void Flatten_LocalDecl_WinsOverMainConditionBlock()
+    {
+        // 메인: std = c++17, [release] { std = c++20 }
+        // 로컬: std = c++23
+        // release 컨텍스트에서도 로컬 c++23이 이겨야 함
+        var releaseCtx = new TargetContext
+        {
+            Platform = "linux", Config = "release",
+            Compiler = "clang", Runtime = "static",
+        };
+        var model = FlattenWithLocal(
+            """
+            project MyApp {
+                type = executable
+                std  = c++17
+                [release] {
+                    std = c++20
+                }
+            }
+            """,
+            """
+            project MyApp {
+                std = c++23
+            }
+            """,
+            releaseCtx);
+
+        Assert.AreEqual(CxxStd.Cxx23, model.Std);
+    }
+
+    [TestMethod]
+    public void Flatten_LocalDecl_ConditionBlockRespected()
+    {
+        // 로컬의 조건 블록이 컨텍스트에 따라 올바르게 적용/미적용돼야 함
+        const string mainSource = """
+            project MyApp {
+                type = executable
+            }
+            """;
+        const string localSource = """
+            project MyApp {
+                [debug] {
+                    compile-flags { "-DLOCAL_DEBUG" }
+                }
+            }
+            """;
+
+        var debugModel = FlattenWithLocal(mainSource, localSource, LinuxDebug);
+        Assert.Contains("-DLOCAL_DEBUG", debugModel.CompileFlags);
+
+        var releaseCtx = new TargetContext
+        {
+            Platform = "linux", Config = "release",
+            Compiler = "clang", Runtime = "static",
+        };
+        var releaseModel = FlattenWithLocal(mainSource, localSource, releaseCtx);
+        Assert.DoesNotContain("-DLOCAL_DEBUG", releaseModel.CompileFlags);
     }
 
     [TestMethod]

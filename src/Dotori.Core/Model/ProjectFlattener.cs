@@ -12,7 +12,8 @@ public static class ProjectFlattener
     public static FlatProjectModel Flatten(
         ProjectDecl decl,
         string dotoriPath,
-        TargetContext context)
+        TargetContext context,
+        ProjectDecl? localDecl = null)
     {
         var model = new FlatProjectModel
         {
@@ -28,7 +29,15 @@ public static class ProjectFlattener
             (0, decl.Items),
         };
 
-        CollectConditionLayers(decl.Items, context, layers);
+        CollectConditionLayers(decl.Items, context, layers, specificityOffset: 0);
+
+        if (localDecl is not null)
+        {
+            layers.Add((DotoriConstants.LocalSpecificityOffset, localDecl.Items));
+            CollectConditionLayers(localDecl.Items, context, layers,
+                                   specificityOffset: DotoriConstants.LocalSpecificityOffset);
+        }
+
         layers.Sort((a, b) => a.Specificity.CompareTo(b.Specificity));
 
         foreach (var (_, items) in layers)
@@ -47,7 +56,8 @@ public static class ProjectFlattener
     private static void CollectConditionLayers(
         List<ProjectItem> items,
         TargetContext context,
-        List<(int, List<ProjectItem>)> layers)
+        List<(int, List<ProjectItem>)> layers,
+        int specificityOffset = 0)
     {
         var activeAtoms = context.ActiveAtoms();
 
@@ -59,9 +69,9 @@ public static class ProjectFlattener
             if (cb.Condition.Atoms.All(a =>
                     activeAtoms.Contains(a, StringComparer.OrdinalIgnoreCase)))
             {
-                layers.Add((cb.Condition.Specificity, cb.Items));
+                layers.Add((cb.Condition.Specificity + specificityOffset, cb.Items));
                 // Recurse: nested condition blocks inside a matched block
-                CollectConditionLayers(cb.Items, context, layers);
+                CollectConditionLayers(cb.Items, context, layers, specificityOffset);
             }
         }
     }

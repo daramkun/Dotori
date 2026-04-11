@@ -885,6 +885,55 @@ repo/
 
 ---
 
+## 로컬 오버라이드 파일 (`.dotori.local`)
+
+`.dotori.local`은 팀이 공유하는 `.dotori`를 수정하지 않고, 개발자 개인이 로컬 환경에서만 빌드 설정을 오버라이드할 수 있는 파일입니다. `.dotori`와 같은 디렉토리에 위치하며, git에서 자동으로 무시됩니다.
+
+### 특징
+
+- `.dotori`와 동일한 DSL 문법 사용
+- `project { }` 블록만 유효 (`package { }` 무시)
+- `.dotori.local`의 모든 설정은 `.dotori`의 어떤 조건 블록보다 높은 우선순위를 가짐
+- git에서 무시되므로 팀원 간 공유되지 않음
+
+### 사용 예시
+
+`.dotori` (공유):
+```
+project MyApp {
+    type     = executable
+    std      = c++17
+    optimize = speed
+
+    [release] {
+        std = c++20
+        lto = true
+    }
+}
+```
+
+`.dotori.local` (개인, git 무시):
+```
+project MyApp {
+    optimize = none      # 로컬에서는 디버깅을 위해 최적화 끄기
+    std      = c++23     # [release] 조건 블록보다 높은 우선순위로 적용
+}
+```
+
+### 우선순위 규칙
+
+| 소스 | 예시 | 우선순위 |
+|------|------|---------|
+| 메인 최상위 | `std = c++17` | 낮음 |
+| 메인 조건 블록 | `[windows.release.msvc] { ... }` | 중간 |
+| 로컬 최상위 | `.dotori.local`의 `std = c++23` | 높음 |
+| 로컬 조건 블록 | `.dotori.local`의 `[debug] { ... }` | 가장 높음 |
+
+> **주의**: 스칼라 속성(`std`, `optimize`, `type` 등)은 오버라이드(마지막 값이 최종값)되고,
+> 리스트 속성(`defines`, `compile-flags`, `sources` 등)은 누적(append)됩니다.
+
+---
+
 ## Lock 파일 (`.dotori.lock`)
 
 의존성 해결 결과를 저장하는 자동 생성 파일입니다. git에 커밋하여 팀원 간 동일한 의존성 버전을 보장합니다.

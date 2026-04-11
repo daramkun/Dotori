@@ -319,7 +319,26 @@ internal static class BuildContext
                 Console.Error.WriteLine($"Error: No project declaration in '{dotoriPath}'.");
                 return null;
             }
-            var model = ProjectFlattener.Flatten(file.Project, dotoriPath, ctx);
+
+            // Load .dotori.local if it exists (optional per-developer local override)
+            ProjectDecl? localDecl = null;
+            var localPath = Path.Combine(
+                Path.GetDirectoryName(dotoriPath)!,
+                DotoriConstants.LocalFileName);
+            if (File.Exists(localPath))
+            {
+                try
+                {
+                    var localFile = DotoriParser.ParseFile(localPath);
+                    localDecl = localFile.Project;
+                }
+                catch (ParseException ex)
+                {
+                    Console.Error.WriteLine($"Warning: Failed to parse '{localPath}': {ex.Message}");
+                }
+            }
+
+            var model = ProjectFlattener.Flatten(file.Project, dotoriPath, ctx, localDecl);
 
             // Inject public headers from all transitive dependencies
             if (node is not null)

@@ -14,6 +14,9 @@ public static class DotoriConstants
     /// <summary>Lock file name written next to the .dotori file.</summary>
     public const string LockFileName = ".dotori.lock";
 
+    /// <summary>Local override file name. Lives next to the .dotori file and is ignored by VCS.</summary>
+    public const string LocalFileName = ".dotori.local";
+
     /// <summary>Root cache directory created inside every project directory.</summary>
     public const string CacheDir = ".dotori-cache";
 
@@ -48,6 +51,14 @@ public static class DotoriConstants
 
     /// <summary>Default number of source files per unity-build batch.</summary>
     public const int DefaultUnityBatchSize = 8;
+
+    /// <summary>
+    /// Specificity offset applied to all layers from the local override file (.dotori.local).
+    /// Ensures every local setting — even unconditional top-level ones — outranks any conditional
+    /// block in the main .dotori file. The maximum normal specificity is bounded by the number
+    /// of condition atoms a user can realistically write; 10000 is safely above that.
+    /// </summary>
+    public const int LocalSpecificityOffset = 10000;
 
     /// <summary>mt.exe resource ID for executable binaries.</summary>
     public const int ManifestResourceIdExe = 1;
