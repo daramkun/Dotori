@@ -1,5 +1,7 @@
 using System.CommandLine;
+using Dotori.Core.Build;
 using Dotori.Core.Graph;
+using Dotori.Core.Model;
 using Dotori.Core.Parsing;
 using Dotori.Core.Toolchain;
 
@@ -16,6 +18,7 @@ internal static class InfoCommandFactory
         infoCommand.Add(CreateTargetsCommand());
         infoCommand.Add(CreateToolchainCommand());
         infoCommand.Add(CreateFeaturesCommand());
+        infoCommand.Add(CreateIncludesCommand());
 
         return infoCommand;
     }
@@ -266,5 +269,152 @@ internal static class InfoCommandFactory
         });
 
         return command;
+    }
+
+    private static Command CreateIncludesCommand()
+    {
+        var command = new Command("includes", "Print the #include tree for project source files");
+
+        var projectOption  = new Option<string?>("--project") { Description = "Path to .dotori file or directory" };
+        var fileOption     = new Option<string?>("--file")    { Description = "Analyse only this source file" };
+        var noSystemOption = new Option<bool>("--no-system")  { Description = "Omit system includes (<...>) from output" };
+        var depthOption    = new Option<int?>("--depth")      { Description = "Maximum include depth to display" };
+        command.Add(projectOption);
+        command.Add(fileOption);
+        command.Add(noSystemOption);
+        command.Add(depthOption);
+
+        command.SetAction((parseResult) =>
+        {
+            var projectArg  = parseResult.GetValue(projectOption);
+            var fileArg     = parseResult.GetValue(fileOption);
+            var noSystem    = parseResult.GetValue(noSystemOption);
+            var depthArg    = parseResult.GetValue(depthOption);
+            int maxDepth    = depthArg ?? int.MaxValue;
+            bool showSystem = !noSystem;
+
+            // Resolve .dotori path
+            var paths = BuildContext.ResolveProjectPaths(projectArg, buildAll: false);
+            if (paths.Count == 0) return 1;
+            var dotoriPath = paths[0];
+
+            // Parse project
+            DotoriFile dotoriFile;
+            try { dotoriFile = DotoriParser.ParseFile(dotoriPath); }
+            catch (ParseException ex)
+            {
+                Console.Error.WriteLine($"Error: {ex.Message}");
+                return 1;
+            }
+
+            if (dotoriFile.Project is null)
+            {
+                Console.Error.WriteLine("Error: No project block found in .dotori file.");
+                return 1;
+            }
+
+            // Flatten with host context (compiler-independent static analysis)
+            var targetId = BuildContext.ResolveTargetId(null);
+            var context  = BuildContext.MakeTargetContext(targetId, "debug");
+            var model    = ProjectFlattener.Flatten(dotoriFile.Project, dotoriPath, context);
+
+            // Build include search paths from headers block
+            var searchPaths = model.Headers
+                .Select(h => Path.IsPathRooted(h.Path)
+                    ? h.Path
+                    : Path.GetFullPath(Path.Combine(model.ProjectDir, h.Path)))
+                .ToList();
+
+            // Collect source files
+            List<string> sourceFiles;
+            if (fileArg is not null)
+            {
+                var abs = Path.IsPathRooted(fileArg)
+                    ? fileArg
+                    : Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), fileArg));
+                if (!File.Exists(abs))
+                {
+                    Console.Error.WriteLine($"Error: File not found: {abs}");
+                    return 1;
+                }
+                sourceFiles = [abs];
+            }
+            else
+            {
+                var includes = model.Sources.Where(s =>  s.IsInclude).Select(s => s.Glob);
+                var excludes = model.Sources.Where(s => !s.IsInclude).Select(s => s.Glob);
+                sourceFiles  = GlobExpander.Expand(model.ProjectDir, includes, excludes).ToList();
+
+                if (sourceFiles.Count == 0)
+                {
+                    Console.WriteLine("No source files found.");
+                    return 0;
+                }
+            }
+
+            // Track nodes already fully printed (to avoid re-expanding duplicates)
+            var printed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < sourceFiles.Count; i++)
+            {
+                var src  = sourceFiles[i];
+                var tree = IncludeScanner.BuildTree(src, searchPaths, showSystem, maxDepth);
+
+                // Print root
+                var relRoot = Path.GetRelativePath(model.ProjectDir, src);
+                Console.WriteLine(relRoot);
+                printed.Add(src);
+
+                PrintChildren(tree.Children, prefix: "", model.ProjectDir, printed);
+
+                if (i < sourceFiles.Count - 1)
+                    Console.WriteLine();
+            }
+
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static void PrintChildren(
+        IReadOnlyList<IncludeScanner.IncludeNode> children,
+        string prefix,
+        string projectDir,
+        HashSet<string> printed)
+    {
+        for (int i = 0; i < children.Count; i++)
+        {
+            var node   = children[i];
+            bool isLast = i == children.Count - 1;
+
+            var connector  = isLast ? "└── " : "├── ";
+            var childPrefix = isLast ? "    " : "│   ";
+
+            // Build display label
+            string label;
+            if (node.IsSystem)
+                label = $"<{node.FilePath}>";
+            else if (node.IsResolved)
+                label = Path.GetRelativePath(projectDir, node.FilePath);
+            else
+                label = node.FilePath;
+
+            // Suffix annotations
+            string suffix = "";
+            if (!node.IsResolved)
+                suffix = "  [not found]";
+            else if (node.IsResolved && printed.Contains(node.FilePath))
+                suffix = "  [↑ already shown]";
+
+            Console.WriteLine($"{prefix}{connector}{label}{suffix}");
+
+            // Recurse only if resolved and not already expanded
+            if (node.IsResolved && !string.IsNullOrEmpty(node.FilePath) && !printed.Contains(node.FilePath))
+            {
+                printed.Add(node.FilePath);
+                PrintChildren(node.Children, prefix + childPrefix, projectDir, printed);
+            }
+        }
     }
 }

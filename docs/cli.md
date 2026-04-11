@@ -306,6 +306,44 @@ dotori targets
 dotori toolchain
 ```
 
+### includes — 헤더 파일 포함 트리 출력
+
+프로젝트 소스 파일의 `#include` 의존 트리를 출력합니다.
+컴파일러 없이 순수 텍스트 파싱으로 동작하므로 빌드 없이 사용 가능합니다.
+
+```bash
+dotori info includes
+dotori info includes --file src/main.cpp
+dotori info includes --no-system
+dotori info includes --depth 3
+```
+
+**옵션:**
+
+| 옵션 | 설명 |
+|------|------|
+| `--project <경로>` | `.dotori` 파일 또는 디렉토리 경로 |
+| `--file <경로>` | 특정 소스 파일 하나만 분석 (생략 시 모든 소스 파일) |
+| `--no-system` | 시스템 헤더(`<...>` 형식) 를 하위 트리 없이 표시 |
+| `--depth <N>` | 최대 출력 깊이 (기본값: 무제한) |
+
+**출력 예시:**
+
+```
+src/main.cpp
+├── include/mylib.h
+│   ├── include/mylib/types.h
+│   └── include/mylib/config.h
+└── <stdio.h>
+
+src/util.cpp
+├── include/mylib.h  [↑ already shown]
+└── <string.h>
+```
+
+> **참고:** 전처리기 조건문(`#ifdef`, `#if` 등)을 평가하지 않으므로
+> 조건부로 포함되는 헤더도 모두 나열됩니다.
+
 ---
 
 ## Language Server 명령어
