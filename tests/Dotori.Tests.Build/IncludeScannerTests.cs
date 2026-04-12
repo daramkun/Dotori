@@ -23,7 +23,7 @@ public sealed class IncludeScannerTests
 
     private string CreateFile(string relativePath, string content)
     {
-        var path = Path.Combine(_tempDir, relativePath);
+        var path = Path.GetFullPath(Path.Combine(_tempDir, relativePath));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
         return path;
