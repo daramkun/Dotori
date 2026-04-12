@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Diagnostics;
 using Dotori.Core;
 using Dotori.Core.Build;
+using Dotori.Core.Debugger;
 using Dotori.Core.Executor;
 using Dotori.Core.Graph;
 
@@ -16,19 +17,32 @@ internal static class RunCommandFactory
         var projectOption = new Option<string?>("--project") { Description = "Path to .dotori file or directory" };
         var releaseOption = new Option<bool>("--release")    { Description = "Run in Release configuration" };
         var targetOption  = new Option<string?>("--target")  { Description = "Build target (e.g. macos-arm64)" };
+        var debuggerOption = new Option<string?>("--debugger")
+        {
+            Description = "Run under debugger. Specify kind (lldb, gdb, vsdbg, windbg, cdb) or leave empty for auto-detection",
+        };
+        var debuggerArgsOption = new Option<string[]>("--debugger-args")
+        {
+            Description = "Additional debugger arguments",
+            AllowMultipleArgumentsPerToken = true,
+        };
         var argsOption    = new Option<string[]>("--")       { Description = "Arguments to pass to the executable", AllowMultipleArgumentsPerToken = true };
 
         command.Add(projectOption);
         command.Add(releaseOption);
         command.Add(targetOption);
+        command.Add(debuggerOption);
+        command.Add(debuggerArgsOption);
         command.Add(argsOption);
 
         command.SetAction(async (parseResult, ct) =>
         {
-            var projectArg = parseResult.GetValue(projectOption);
-            var release    = parseResult.GetValue(releaseOption);
-            var targetArg  = parseResult.GetValue(targetOption);
-            var runArgs    = parseResult.GetValue(argsOption) ?? Array.Empty<string>();
+            var projectArg      = parseResult.GetValue(projectOption);
+            var release         = parseResult.GetValue(releaseOption);
+            var targetArg       = parseResult.GetValue(targetOption);
+            var debuggerArg     = parseResult.GetValue(debuggerOption); // null if not specified, "" or kind if specified
+            var debuggerArgsVal = parseResult.GetValue(debuggerArgsOption) ?? Array.Empty<string>();
+            var runArgs         = parseResult.GetValue(argsOption) ?? Array.Empty<string>();
 
             var config   = release ? "release" : "debug";
             var targetId = BuildContext.ResolveTargetId(targetArg);
@@ -200,8 +214,60 @@ internal static class RunCommandFactory
                 return 1;
             }
 
-            // Run the executable
             Console.WriteLine();
+
+            // *** Debugger mode handling ***
+            if (debuggerArg is not null)
+            {
+                // 1. Validate compatibility
+                var validationError = DebuggerDetector.ValidateDebugCompatibility(targetId);
+                if (validationError is not null)
+                {
+                    Console.Error.WriteLine($"Error: {validationError}");
+                    return 1;
+                }
+
+                // 2. Select debugger
+                DebuggerInfo? debuggerInfo = null;
+                if (string.IsNullOrEmpty(debuggerArg))
+                {
+                    // Auto-detect (--debugger with no value or --debugger "")
+                    debuggerInfo = DebuggerDetector.DetectDefault();
+                }
+                else
+                {
+                    // Explicit kind specified (--debugger lldb)
+                    if (Enum.TryParse<DebuggerKind>(debuggerArg, true, out var kind))
+                        debuggerInfo = DebuggerDetector.Detect(kind);
+                    else
+                    {
+                        Console.Error.WriteLine($"Error: Unknown debugger '{debuggerArg}'");
+                        Console.Error.WriteLine("Available: lldb, gdb, vsdbg, windbg, cdb");
+                        return 1;
+                    }
+                }
+
+                if (debuggerInfo is null)
+                {
+                    var msg = string.IsNullOrEmpty(debuggerArg)
+                        ? "Error: No debugger found. Install lldb, gdb, or windbg."
+                        : $"Error: Debugger '{debuggerArg}' not found.";
+                    Console.Error.WriteLine(msg);
+                    return 1;
+                }
+
+                Console.WriteLine($"Launching under {debuggerInfo.DisplayName ?? debuggerInfo.Kind.ToString()}...");
+                Console.WriteLine();
+
+                return await DebuggerLauncher.LaunchAsync(
+                    debuggerInfo,
+                    executablePath,
+                    runArgs,
+                    debuggerArgsVal,
+                    ct);
+            }
+
+            // *** Normal execution ***
             var psi = new ProcessStartInfo(executablePath, string.Join(" ", runArgs))
             {
                 UseShellExecute = false,
