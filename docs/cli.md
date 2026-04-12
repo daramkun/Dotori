@@ -397,6 +397,61 @@ dotori export grammar --format zed --output build/zed/languages/dotori/highlight
 
 ---
 
+## export build-system — 빌드 시스템 파일 생성
+
+IDE 통합을 위해 `.dotori` 파일에서 외부 빌드 시스템 파일을 생성합니다.
+생성된 파일은 `git commit` 대상이 아니며, 필요할 때마다 명령을 재실행하여 재생성합니다.
+
+```bash
+dotori export build-system                                  # CMakeLists.txt (기본)
+dotori export build-system --format cmake                   # CMakeLists.txt
+dotori export build-system --format meson                   # meson.build
+dotori export build-system --format vcxproj                 # .vcxproj + .vcxproj.filters (Visual Studio)
+dotori export build-system --format pbxproj                 # *.xcodeproj/project.pbxproj (Xcode)
+dotori export build-system --format ninja                   # build.ninja
+dotori export build-system --format makefile                # Makefile
+
+dotori export build-system --output <경로>                  # 출력 디렉토리 지정
+dotori export build-system --config debug                   # debug 설정만 생성
+dotori export build-system --config release                 # release 설정만 생성
+dotori export build-system --config both                    # debug + release 모두 (기본)
+dotori export build-system --target windows-x64             # 특정 타겟 플랫폼
+```
+
+### 지원 형식
+
+| `--format` | 생성 파일 | 용도 |
+|------------|----------|------|
+| `cmake` (기본) | `CMakeLists.txt` | CLion, VS Code (CMake Tools), CMake 직접 사용 |
+| `meson` | `meson.build` | GNOME Builder, CLion (Meson), Meson 직접 사용 |
+| `vcxproj` | `<name>.vcxproj`, `<name>.vcxproj.filters` | Visual Studio 2022 |
+| `pbxproj` | `<name>.xcodeproj/project.pbxproj` | Xcode (macOS/iOS) |
+| `ninja` | `build.ninja` (또는 `build.debug.ninja` / `build.release.ninja`) | Ninja 직접 사용 |
+| `makefile` | `Makefile` | GNU Make 직접 사용 |
+
+### 의존성 처리
+
+| 의존성 종류 | CMake | Meson | vcxproj/pbxproj | Ninja/Makefile |
+|------------|-------|-------|-----------------|----------------|
+| 경로 (`path:`) | `add_subdirectory()` | `subproject()` | `ProjectReference` | 주석 안내 |
+| Git (`git:`) | `FetchContent` | 주석 (wrap 파일 직접 생성) | 주석 안내 | 주석 안내 |
+| 버전 (`"x.y.z"`) | 주석 안내 | 주석 안내 | 주석 안내 | 주석 안내 |
+
+### 사용 예시
+
+```bash
+# CLion / VS Code 통합
+dotori export build-system --format cmake
+
+# Visual Studio 2022
+dotori export build-system --format vcxproj --target windows-x64
+
+# Xcode
+dotori export build-system --format pbxproj --target macos-arm64
+```
+
+---
+
 ## generate-compile-commands — compile_commands.json 생성
 
 clangd 등 C++ IntelliSense 도구와 통합하기 위한 `compile_commands.json`을 생성합니다.

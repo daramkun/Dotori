@@ -4,6 +4,21 @@ C# (.NET 10, NativeAOT). 설계 문서: `docs/` 참조
 
 ---
 
+## 구현된 항목
+
+### export build-system — 빌드 시스템 파일 자동 생성
+
+`dotori export build-system --format <fmt>` 명령으로 `.dotori` 파일에서 외부 빌드 시스템 파일 생성.
+
+- [x] CMakeLists.txt (`--format cmake`)
+- [x] meson.build (`--format meson`)
+- [x] .vcxproj / .vcxproj.filters (`--format vcxproj`)
+- [x] *.xcodeproj/project.pbxproj (`--format pbxproj`)
+- [x] build.ninja (`--format ninja`)
+- [x] Makefile (`--format makefile`)
+
+---
+
 ## 미구현 항목
 
 ### Phase 1-I: 플랫폼 검증

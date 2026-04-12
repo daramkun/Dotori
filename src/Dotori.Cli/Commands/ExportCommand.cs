@@ -12,6 +12,7 @@ internal static class ExportCommandFactory
 
         exportCommand.Add(CreateCompileCommandsSubcommand());
         exportCommand.Add(ExportGrammarCommandFactory.Create());
+        exportCommand.Add(ExportBuildSystemCommandFactory.Create());
 
         return exportCommand;
     }
